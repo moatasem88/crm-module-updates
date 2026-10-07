@@ -4,6 +4,7 @@ app_publisher = "moatasem88"
 app_description = "CRM customizations for Lead and Opportunity: Leads Activity, tendering automation, contacts tables"
 app_email = "moatasemmahdy32@gmail.com"
 app_license = "MIT"
+required_apps = ["erpnext"]
 
 # Includes in <head>
 # ------------------
@@ -27,7 +28,10 @@ app_license = "MIT"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+	"Lead": ["public/js/leads_activity_section.js", "public/js/lead.js"],
+	"Opportunity": ["public/js/leads_activity_section.js", "public/js/opportunity.js"],
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -63,6 +67,15 @@ app_license = "MIT"
 
 # before_install = "custom_crm_updates.install.before_install"
 # after_install = "custom_crm_updates.install.after_install"
+after_migrate = [
+	"custom_crm_updates.overrides.lead.apply_lead_customizations",
+	"custom_crm_updates.overrides.opportunity.apply_opportunity_customizations",
+	"custom_crm_updates.overrides.project_tender.apply_project_tender_customizations",
+	# after the three above: they need the custom fields
+	"custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity.backfill_activity_tables",
+	"custom_crm_updates.overrides.project_tender.backfill_opportunity_tenders",
+	"custom_crm_updates.overrides.contact.backfill_contact_tables",
+]
 
 # Uninstallation
 # ------------
@@ -116,13 +129,28 @@ app_license = "MIT"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Lead": {
+		"before_validate": "custom_crm_updates.overrides.lead.clear_person_fields",
+		"validate": [
+			"custom_crm_updates.overrides.lead.validate_customer_fields",
+			"custom_crm_updates.overrides.contact.refresh_own_table",
+		],
+		"after_insert": "custom_crm_updates.overrides.contact.refresh_after_insert",
+	},
+	"Opportunity": {
+		"validate": "custom_crm_updates.overrides.contact.refresh_own_table",
+	},
+	"Contact": {
+		"on_update": "custom_crm_updates.overrides.contact.on_contact_update",
+		"on_trash": "custom_crm_updates.overrides.contact.on_contact_trash",
+	},
+	# contracting app; never fires if it isn't installed
+	"Project Tender": {
+		"on_update": "custom_crm_updates.overrides.project_tender.on_update",
+		"on_trash": "custom_crm_updates.overrides.project_tender.on_trash",
+	},
+}
 
 # Scheduled Tasks
 # ---------------
@@ -160,9 +188,10 @@ app_license = "MIT"
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "custom_crm_updates.task.get_dashboard_data"
-# }
+override_doctype_dashboards = {
+	"Lead": "custom_crm_updates.overrides.lead.get_dashboard_data",
+	"Opportunity": "custom_crm_updates.overrides.opportunity.get_dashboard_data",
+}
 
 # exempt linked doctypes from being automatically cancelled
 #

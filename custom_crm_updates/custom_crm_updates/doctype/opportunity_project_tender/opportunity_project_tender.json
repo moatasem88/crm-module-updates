@@ -1,0 +1,84 @@
+{
+ "actions": [],
+ "creation": "2026-10-06 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "project_tender",
+  "project_name",
+  "client",
+  "status",
+  "total_sell_price",
+  "leads_activity",
+  "creation_date"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "project_tender",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project Tender",
+   "options": "Project Tender",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Project Name",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "client",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Client",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Status",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "total_sell_price",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Sell Price",
+   "read_only": 1
+  },
+  {
+   "fieldname": "leads_activity",
+   "fieldtype": "Link",
+   "label": "Activity",
+   "options": "Leads Activity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "creation_date",
+   "fieldtype": "Date",
+   "label": "Created On",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-07 11:10:00.000000",
+ "modified_by": "Administrator",
+ "module": "Custom CRM Updates",
+ "name": "Opportunity Project Tender",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

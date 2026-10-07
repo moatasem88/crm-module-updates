@@ -1,0 +1,159 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "CRM-ACT-.YYYY.-.#####",
+ "creation": "2026-09-29 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "activity_type",
+  "status",
+  "column_break_main",
+  "date",
+  "assigned_to",
+  "assigned_to_name",
+  "link_section",
+  "link_type",
+  "column_break_link",
+  "link_name",
+  "attachments_section",
+  "attachments"
+ ],
+ "fields": [
+  {
+   "fieldname": "activity_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Type",
+   "options": "\nCall\nMeeting\nSite Visit\nRegistration\nTendering\nOther",
+   "reqd": 1
+  },
+  {
+   "default": "Planned",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Planned\nIn Process\nDone\nFailed\nClosed\nWaiting Reply",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Today",
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Assigned To",
+   "options": "User"
+  },
+  {
+   "depends_on": "assigned_to",
+   "fetch_from": "assigned_to.full_name",
+   "fieldname": "assigned_to_name",
+   "fieldtype": "Data",
+   "label": "Assigned To Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "link_section",
+   "fieldtype": "Section Break",
+   "label": "Link"
+  },
+  {
+   "fieldname": "link_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Link Type",
+   "options": "\nLead\nProspect\nOpportunity",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_link",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "link_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Link",
+   "options": "link_type",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "attachments_section",
+   "fieldtype": "Section Break",
+   "label": "Attachments"
+  },
+  {
+   "fieldname": "attachments",
+   "fieldtype": "Table",
+   "label": "Attachments",
+   "options": "Leads Activity Attachment"
+  }
+ ],
+ "links": [],
+ "modified": "2026-10-07 11:10:00.000000",
+ "modified_by": "Administrator",
+ "module": "Custom CRM Updates",
+ "name": "Leads Activity",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "activity_type,link_type,link_name,status",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

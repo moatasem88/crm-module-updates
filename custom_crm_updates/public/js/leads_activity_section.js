@@ -1,0 +1,72 @@
+// Shared by lead.js and opportunity.js (loaded ahead of them via doctype_js):
+// buttons for the read-only tables those forms get from custom_crm_updates —
+// custom_leads_activities (Activities tab) and custom_contacts (Contacts).
+
+frappe.provide("custom_crm_updates");
+
+// Frappe hides a read-only field with no value, so an empty mirror table
+// would vanish, and with it its "New ..." button (and, if nothing else is
+// in it, its whole tab). Keep it shown, still read-only, once the doc is
+// saved. Call from the controller's setup: the controls outlive doc switches.
+custom_crm_updates.show_when_empty = function (frm, fieldnames) {
+	for (const fieldname of fieldnames) {
+		const control = frm.fields_dict[fieldname];
+		if (!control) continue;
+
+		const get_status = control.get_status;
+		control.get_status = function (explain) {
+			const status = get_status.call(this, explain);
+			// "None" for any other reason (hidden, permissions) still wins
+			const hidden = cint(this.df.hidden) || cint(this.df.hidden_due_to_dependency);
+			return status === "None" && !hidden && !frm.is_new() && frm.perm[this.df.permlevel || 0]?.read
+				? "Read"
+				: status;
+		};
+	}
+};
+
+// New Leads Activity pre-linked to the current Lead/Opportunity.
+custom_crm_updates.make_activity = function (frm) {
+	const { doctype, name } = frm.doc;
+	frappe.model.with_doctype("Leads Activity", () => {
+		const activity = frappe.model.get_new_doc("Leads Activity");
+		activity.link_type = doctype;
+		activity.link_name = name;
+		frappe.set_route("Form", "Leads Activity", activity.name);
+	});
+};
+
+// Call from the controller's setup.
+custom_crm_updates.setup_activity_make_method = function (frm) {
+	// Connections tab "+": the default make_new can't fill a Dynamic Link.
+	frm.make_methods = {
+		...frm.make_methods,
+		"Leads Activity": () => custom_crm_updates.make_activity(frm),
+	};
+};
+
+// Call from the controller's refresh, after the core buttons are added.
+custom_crm_updates.add_activity_buttons = function (frm) {
+	if (frm.is_new() || !frappe.model.can_create("Leads Activity")) return;
+
+	const make = () => custom_crm_updates.make_activity(frm);
+	frm.add_custom_button(__("Activity"), make, __("Create"));
+
+	// The table is read-only (rows mirror Leads Activity records), so it has
+	// no Add Row; offer this instead.
+	frm.fields_dict.custom_leads_activities?.grid?.add_custom_button(__("New Activity"), make, "top");
+};
+
+// The Contacts table replaces core's contact list, so it also takes over its
+// "New Contact" button: same call, and core's refresh has already set
+// frappe.dynamic_link (Lead: the Lead; Opportunity: its party), which the new
+// Contact is linked to.
+custom_crm_updates.add_contact_button = function (frm) {
+	if (frm.is_new() || !frappe.model.can_create("Contact")) return;
+
+	frm.fields_dict.custom_contacts?.grid?.add_custom_button(
+		__("New Contact"),
+		() => frappe.new_doc("Contact"),
+		"top"
+	);
+};
