@@ -131,7 +131,7 @@ ARCH = """
       <tr><td><code>hooks.py</code></td><td>wiring</td><td>Connects events and scripts to the functions below</td></tr>
       <tr><td><code>overrides/lead.py</code></td><td>Python</td><td>Lead fields and layout, Is Company, mandatory fields, Lead → Customer</td></tr>
       <tr><td><code>overrides/opportunity.py</code></td><td>Python</td><td>Opportunity fields, statuses, Project Tender tab</td></tr>
-      <tr><td><code>overrides/project_tender.py</code></td><td>Python</td><td>Tendering → Project Tender, Submitted → Won, tender table</td></tr>
+      <tr><td><code>overrides/project_tender.py</code></td><td>Python</td><td>Tendering → Project Tender, Submitted → activity Done, Opportunity Won → approved tender, tender table</td></tr>
       <tr><td><code>overrides/contact.py</code></td><td>Python</td><td>Contacts tables on Lead and Opportunity</td></tr>
       <tr><td><code>mirror_table.py</code></td><td>Python</td><td>Shared writer for all read-only tables</td></tr>
       <tr><td><code>custom_crm_updates/doctype/leads_activity/</code></td><td>DocType</td><td>The activity record, its automations, list colours, form script, tests</td></tr>
@@ -235,7 +235,7 @@ def steps_a():
 		])
 		+ py("custom_crm_updates/doctype/leads_activity/leads_activity.py", "sync_activity_table", "LeadsActivity.on_trash", "LeadsActivity.linked_docs")
 		+ explain([
-			"<code>sync_activity_table</code> queries every activity linked to the Lead (newest first) plus a count of each one's attachments, then hands the rows to <code>set_mirror_rows</code>.",
+			"<code>sync_activity_table</code> queries every activity linked to the Lead (ascending by <code>creation</code>, so a new one is appended at the bottom and a back-dated one does not jump to the top) plus a count of each one's attachments, then hands the rows to <code>set_mirror_rows</code>.",
 			"<code>linked_docs</code> returns the current link <em>and</em> the previous one when an activity is moved to another record, so the old record loses the row and the new one gains it.",
 			"<code>on_trash</code> passes <code>exclude=self.name</code>: the row is removed before Frappe's link check, otherwise the row itself (a Link to the activity) would block the deletion.",
 		])

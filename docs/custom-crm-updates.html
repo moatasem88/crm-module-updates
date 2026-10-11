@@ -427,6 +427,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <ul class="ticks">
           <li>Its own activities, separate from the Lead's</li>
           <li>New statuses: Tendering and Won</li>
+          <li>Won asks which tender was approved</li>
           <li>Project Tender tab lists its tenders</li>
           <li>Contacts shown as a table</li>
         </ul>
@@ -437,7 +438,8 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
           <li>Created by a Tendering activity</li>
           <li>Named after the Opportunity</li>
           <li>Linked back to its Opportunity and activity</li>
-          <li>Submitted → activity Done, Opportunity Won</li>
+          <li>Submitted → its activity Done (needs full costing)</li>
+          <li>Won when the Opportunity picks it as approved</li>
         </ul>
       </div>
     </div>
@@ -452,7 +454,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     </div>
     <figure>
       <div class="diagram scroll-x">
-        <svg viewBox="0 0 990 380" role="img" aria-label="Swimlane diagram. A saved Lead with Customer Group and Territory leads to an Opportunity. A Registration activity puts the Lead In Process; marking it Done qualifies the Lead and converts it to a Customer. A Tendering activity on the Opportunity sets it to Tendering and creates a Project Tender whose Client is that Customer. When the Project Tender is Submitted, the activity becomes Done and the Opportunity becomes Won.">
+        <svg viewBox="0 0 990 380" role="img" aria-label="Swimlane diagram. A saved Lead with Customer Group and Territory leads to an Opportunity. A Registration activity puts the Lead In Process; marking it Done qualifies the Lead and converts it to a Customer. A Tendering activity on the Opportunity sets it to Tendering and creates a Project Tender whose Client is that Customer. When the Project Tender is Submitted, the activity becomes Done. Setting the Opportunity to Won asks which tender was approved, and that tender becomes Won.">
           <defs>
             <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
@@ -479,7 +481,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
             <line x1="265" y1="240" x2="473" y2="240"/>
             <polyline points="545,265 545,330 648,330"/>
             <line x1="790" y1="330" x2="823" y2="330"/>
-            <line x1="895" y1="305" x2="895" y2="267"/>
+            <line x1="895" y1="267" x2="895" y2="303"/>
           </g>
           <!-- arrow labels -->
           <g font-size="11.5" style="fill:var(--ink-2)">
@@ -488,7 +490,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
             <text x="728" y="196">Client</text>
             <text x="370" y="231" text-anchor="middle">Tendering activity</text>
             <text x="553" y="302">creates</text>
-            <text x="903" y="291">sets Won</text>
+            <text x="903" y="291">approved → Won</text>
           </g>
 
           <!-- boxes: x, y, lane colour strip -->
@@ -501,10 +503,10 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 
             <g transform="translate(125,215)"><rect width="140" height="50" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="50" rx="2" style="fill:var(--c-opp)"/><text x="14" y="21" font-weight="700" fill="currentColor">Opportunity</text><text x="14" y="38" style="fill:var(--ink-2)">status Open</text></g>
             <g transform="translate(475,215)"><rect width="140" height="50" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="50" rx="2" style="fill:var(--c-opp)"/><text x="14" y="21" font-weight="700" fill="currentColor">Tendering</text><text x="14" y="38" style="fill:var(--ink-2)">status → Tendering</text></g>
-            <g transform="translate(825,215)"><rect width="140" height="50" rx="6" style="fill:var(--surface);stroke:var(--accent);stroke-width:1.5"/><rect width="4" height="50" rx="2" style="fill:var(--c-opp)"/><text x="14" y="21" font-weight="700" fill="currentColor">Opportunity</text><text x="14" y="38" style="fill:var(--ink-2)">status → Won</text></g>
+            <g transform="translate(825,215)"><rect width="140" height="50" rx="6" style="fill:var(--surface);stroke:var(--accent);stroke-width:1.5"/><rect width="4" height="50" rx="2" style="fill:var(--c-opp)"/><text x="14" y="21" font-weight="700" fill="currentColor">Opportunity</text><text x="14" y="38" style="fill:var(--ink-2)">user sets Won</text></g>
 
             <g transform="translate(650,305)"><rect width="140" height="50" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="50" rx="2" style="fill:var(--c-tender)"/><text x="14" y="21" font-weight="700" fill="currentColor">Project Tender</text><text x="14" y="38" style="fill:var(--ink-2)">Draft · Opp's name</text></g>
-            <g transform="translate(825,305)"><rect width="140" height="50" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="50" rx="2" style="fill:var(--c-tender)"/><text x="14" y="21" font-weight="700" fill="currentColor">Submitted</text><text x="14" y="38" style="fill:var(--ink-2)">activity → Done</text></g>
+            <g transform="translate(825,305)"><rect width="140" height="50" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="50" rx="2" style="fill:var(--c-tender)"/><text x="14" y="21" font-weight="700" fill="currentColor">Submitted</text><text x="14" y="38" style="fill:var(--ink-2)">activity → Done; then Won</text></g>
           </g>
         </svg>
       </div>
@@ -517,7 +519,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
     <div class="sheet-head">
       <div class="sheet-no">Sheet 03</div>
       <h2>Automation rules</h2>
-      <p>Everything that happens on its own, in one table. Rules 1–5 also write a comment on the record's timeline, so you can always see why a status changed.</p>
+      <p>Everything that happens on its own, in one table. Rules 1–6 also write a comment on the record's timeline, so you can always see why a status changed. Rules 11 and 12 are refusals: they stop a save rather than change anything.</p>
     </div>
     <div class="table-box">
       <table>
@@ -526,11 +528,14 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
           <tr><td class="rule-no">1</td><td>A Leads Activity is <strong>created</strong></td><td>Type = Registration, linked to a Lead</td><td>Lead Qualification → <strong>In Process</strong> (a Qualified Lead is never moved back)</td></tr>
           <tr><td class="rule-no">2</td><td>An activity <strong>becomes Done</strong></td><td>Linked to a Lead</td><td>Lead → <strong>Qualified</strong>; Qualified By = the activity's Assigned To (or you); Qualified On = today</td></tr>
           <tr><td class="rule-no">3</td><td>A Registration activity <strong>becomes Done</strong></td><td>Linked to a Lead with no Customer yet</td><td>Lead converted to a <strong>Customer</strong> with the Lead's Customer Group and Territory; Lead status → Converted</td></tr>
-          <tr><td class="rule-no">4</td><td>An activity is <strong>saved</strong></td><td>Type = Tendering, linked to an Opportunity, no tender yet for this activity</td><td><strong>Project Tender</strong> created (Draft, named after the Opportunity, Client = its Customer); Opportunity → <strong>Tendering</strong> unless already Won or Converted</td></tr>
-          <tr><td class="rule-no">5</td><td>A Project Tender's status becomes <strong>Submitted</strong></td><td>It was created by a Tendering activity</td><td>That activity → <strong>Done</strong>; Opportunity → <strong>Won</strong></td></tr>
-          <tr><td class="rule-no">6</td><td>An activity, tender or contact is saved or deleted</td><td>Linked to a Lead or Opportunity</td><td>That record's read-only table refreshes (Sheet 06)</td></tr>
-          <tr><td class="rule-no">7</td><td>A Lead is saved</td><td>Is Company is ticked</td><td>Person fields are cleared; Full Name = Organization Name</td></tr>
-          <tr><td class="rule-no">8</td><td>A person saves a Lead</td><td>Form, API or Data Import</td><td>Customer Group and Territory are required (Leads ERPNext creates by itself are exempt)</td></tr>
+          <tr><td class="rule-no">4</td><td>An activity is <strong>saved</strong></td><td>Type = Tendering, linked to an Opportunity, no tender yet for this activity</td><td><strong>Project Tender</strong> created (Draft, named after the Opportunity, Client = its Customer); Opportunity → <strong>Tendering</strong> unless already Won or Converted; a message names the new tender</td></tr>
+          <tr><td class="rule-no">5</td><td>A Project Tender's status becomes <strong>Submitted</strong></td><td>It was created by a Tendering activity</td><td>That activity → <strong>Done</strong>. The Opportunity is <em>not</em> changed: which tender won is decided by rule 6</td></tr>
+          <tr><td class="rule-no">6</td><td>An Opportunity is <strong>saved as Won</strong></td><td>A Project Tender was picked as the approved one (the popup asks when you choose Won)</td><td>That tender → <strong>Won</strong>, which runs the contracting app's own Won automation (its Project and Sales Order). The other tenders are left as they are</td></tr>
+          <tr><td class="rule-no">7</td><td>An activity, tender or contact is saved or deleted</td><td>Linked to a Lead or Opportunity</td><td>That record's read-only table refreshes (Sheet 06)</td></tr>
+          <tr><td class="rule-no">8</td><td>A Lead is saved</td><td>Is Company is ticked</td><td>Person fields are cleared; Full Name = Organization Name</td></tr>
+          <tr><td class="rule-no">9</td><td>A person saves a Lead</td><td>Form, API or Data Import</td><td>Customer Group and Territory are required (Leads ERPNext creates by itself are exempt)</td></tr>
+          <tr><td class="rule-no">10</td><td>A Leads Activity is <strong>saved</strong></td><td>Type = Registration</td><td>Refused unless the Attachments table has at least one file. The table is marked mandatory (red asterisk) as soon as the Type is Registration</td></tr>
+          <tr><td class="rule-no">11</td><td>A Project Tender is <strong>saved as Submitted</strong></td><td>Any of Direct Cost, Indirect Cost or Overhead / Deduction Details is empty</td><td>Refused, naming the tables that are still empty</td></tr>
         </tbody>
       </table>
     </div>
@@ -556,7 +561,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <div class="who"><i style="background:var(--c-opp)"></i>Opportunity</div>
         <div class="flow">
           <span class="pill"><i style="background:var(--s-blue)"></i>Open</span><span class="to">→</span><span class="why">Tendering activity</span><span class="to">→</span>
-          <span class="pill"><i style="background:var(--s-orange)"></i>Tendering <span class="new-tag">new</span></span><span class="to">→</span><span class="why">tender Submitted</span><span class="to">→</span>
+          <span class="pill"><i style="background:var(--s-orange)"></i>Tendering <span class="new-tag">new</span></span><span class="to">→</span><span class="why">you set it, and pick the approved tender</span><span class="to">→</span>
           <span class="pill"><i style="background:var(--s-green)"></i>Won <span class="new-tag">new</span></span>
         </div>
       </div>
@@ -565,8 +570,8 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <div class="flow">
           <span class="pill"><i style="background:var(--s-gray)"></i>Draft</span><span class="to">→</span>
           <span class="pill"><i style="background:var(--s-blue)"></i>Under Review</span><span class="to">→</span>
-          <span class="pill"><i style="background:var(--s-orange)"></i>Submitted</span><span class="why">triggers rule 5</span><span class="to">→</span>
-          <span class="pill"><i style="background:var(--s-green)"></i>Won</span><span class="why">contracting app</span>
+          <span class="pill"><i style="background:var(--s-orange)"></i>Submitted</span><span class="why">triggers rule 5; needs all three cost tables</span><span class="to">→</span>
+          <span class="pill"><i style="background:var(--s-green)"></i>Won</span><span class="why">rule 6, when the Opportunity approves it</span>
         </div>
       </div>
       <div class="state-row">
@@ -626,8 +631,9 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <h3 style="margin-bottom:12px">Opportunity</h3>
         <ul class="ticks">
           <li><strong>Status</strong> gains Tendering and Won.</li>
-          <li><strong>Project Tender</strong> tab: table of the tenders created for this Opportunity.</li>
-          <li><strong>Contacts</strong> tab: a Contacts table replaces the old contact list.</li>
+          <li><strong>Project Tender</strong> tab: table of the tenders created for this Opportunity, plus the read-only <strong>Approved Project Tender</strong> below it.</li>
+          <li>Choosing <strong>Won</strong> opens a popup listing those tenders and asks which one was approved; saving sets that tender to Won.</li>
+          <li><strong>Contacts</strong> tab: a Contacts table replaces the old contact list. It holds the Opportunity's <em>own</em> contacts only; the Lead's do not appear here, while the Lead does show this Opportunity's.</li>
           <li><strong>Activities</strong> tab: an <strong>Opportunity Activities</strong> table, separate from the Lead's.</li>
           <li><strong>Create</strong> menu: Activity added; everything else unchanged.</li>
         </ul>
@@ -636,7 +642,8 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
         <h3 style="margin-bottom:12px">Project Tender</h3>
         <ul class="ticks">
           <li>Two read-only links added: <strong>Opportunity</strong> and <strong>Leads Activity</strong>, filled by the automation.</li>
-          <li>Everything else belongs to the contracting app and is unchanged, including its own Won automation.</li>
+          <li><strong>Submitted</strong> is refused until all three cost tables (Direct Cost, Indirect Cost, Overhead / Deduction) have rows.</li>
+          <li>Everything else belongs to the contracting app and is unchanged, including its own Won automation, which runs when the approved tender is set to Won.</li>
         </ul>
       </div>
     </div>
@@ -687,10 +694,10 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <table>
         <thead><tr><th>Table</th><th>Where</th><th>Shows</th><th>Refreshes when</th><th>Button</th></tr></thead>
         <tbody>
-          <tr><td><strong>Leads Activities</strong></td><td>Lead ▸ Activities</td><td>Activities linked to this Lead</td><td>An activity is saved, re-linked or deleted</td><td>New Activity</td></tr>
+          <tr><td><strong>Leads Activities</strong></td><td>Lead ▸ Activities</td><td>Activities linked to this Lead (oldest first)</td><td>An activity is saved, re-linked or deleted</td><td>New Activity</td></tr>
           <tr><td><strong>Opportunity Activities</strong></td><td>Opportunity ▸ Activities</td><td>Activities linked to this Opportunity only</td><td>Same as above</td><td>New Activity</td></tr>
-          <tr><td><strong>Project Tenders</strong></td><td>Opportunity ▸ Project Tender</td><td>Tender, project name, client, status, total sell price</td><td>A tender is saved or deleted</td><td>none (created by Tendering)</td></tr>
-          <tr><td><strong>Contacts</strong></td><td>Lead ▸ Address &amp; Contacts; Opportunity ▸ Contacts</td><td>Lead: its contacts. Opportunity: its own plus its Lead's/Customer's</td><td>A contact is saved or deleted, or the record is saved</td><td>New Contact</td></tr>
+          <tr><td><strong>Project Tenders</strong></td><td>Opportunity ▸ Project Tender</td><td>Tender, project name, client, status, total sell price (oldest first)</td><td>A tender is saved or deleted</td><td>none (created by Tendering)</td></tr>
+          <tr><td><strong>Contacts</strong></td><td>Lead ▸ Address &amp; Contacts; Opportunity ▸ Contacts</td><td>Opportunity: its own contacts only. Lead: its own plus those of every Opportunity made from it (oldest first, "Linked Via" names the source)</td><td>A contact is saved or deleted, or the record is saved</td><td>New Contact</td></tr>
         </tbody>
       </table>
     </div>
@@ -717,10 +724,16 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
           <li>One Project Tender per Tendering activity. Saving the activity again never makes a second one.</li>
           <li>Registration moves a Lead to In Process only when the activity is first created.</li>
           <li>A Won or Converted Opportunity is never set back to Tendering.</li>
+          <li>Submitting a tender no longer wins the Opportunity. Several tenders can be submitted for one Opportunity; the Opportunity being set to Won is what picks the winner.</li>
+          <li>Dismissing the "which tender was approved?" popup puts the Status back. An Opportunity with no tenders at all can still be set to Won.</li>
+          <li>Setting the Status to Won outside the form (list view, bulk edit, API) marks no tender: there is nobody to ask.</li>
+          <li>A Registration activity needs at least one attachment, including when an existing activity is changed to Registration.</li>
+          <li>New rows are appended at the bottom of every table here: oldest at the top, ascending by creation date.</li>
+          <li>Error messages and alerts are in Arabic; field names, DocType names and status values stay in English.</li>
           <li>An Opportunity from a Prospect uses the Customer named after that Prospect, or creates it.</li>
           <li>Automations run as the system, so a Sales User can trigger them without Customer or Project Tender rights.</li>
           <li>A Lead with activities cannot be deleted until its activities are; an activity that created a tender cannot be deleted while the tender exists.</li>
-          <li>Registration activities marked Done before 6 Oct did not convert their Leads retroactively.</li>
+          <li>Registration activities marked Done before 6 Oct did not convert their Leads retroactively, and Registration activities saved before 10 Oct may have no attachment; they ask for one the next time they are saved.</li>
         </ul>
       </div>
       <div class="panel">
@@ -815,6 +828,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
       <li><div class="date">4 Oct 2026</div><div class="rail"></div><div class="body"><strong>Opportunity activities</strong><span>Its own Activities table, kept separate from the Lead's.</span></div></li>
       <li><div class="date">4 Oct 2026</div><div class="rail"></div><div class="body"><strong>Address &amp; Contacts tab</strong><span>Moved out of the Lead's Details tab into its own tab.</span></div></li>
       <li><div class="date">6 Oct 2026</div><div class="rail"></div><div class="body"><strong>Six modifications</strong><span>Tendering type and statuses, Tendering → Project Tender, the Project Tender tab, Submitted → Won, Registration → Customer, and Contacts tables.</span></div></li>
+      <li><div class="date">10 Oct 2026</div><div class="rail"></div><div class="body"><strong>Six more modifications</strong><span>Submitting a tender now only marks its activity Done; a Won Opportunity asks which tender was approved and wins that one; a message confirms a new tender; Registration needs an attachment; Submitted needs full costing; and Lead and Opportunity contacts are kept apart.</span></div></li>
       <li><div class="date">6 Oct 2026</div><div class="rail"></div><div class="body"><strong>Customer Group &amp; Territory on Lead</strong><span>Mandatory on the Lead and carried into the Customer on conversion.</span></div></li>
     </ol>
   </section>
@@ -833,7 +847,7 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
 ├── overrides/
 │   ├── lead.py                   <span class="c"># Lead fields &amp; layout, Is Company, mandatory check, Lead → Customer</span>
 │   ├── opportunity.py            <span class="c"># Opportunity fields, statuses, Project Tender tab</span>
-│   ├── project_tender.py         <span class="c"># Tendering → tender, Submitted → Won, tender table</span>
+│   ├── project_tender.py         <span class="c"># Tendering → tender, Submitted → activity Done, approved tender → Won</span>
 │   └── contact.py                <span class="c"># Contacts tables on Lead and Opportunity</span>
 ├── public/js/
 │   ├── lead.js                   <span class="c"># Create menu, buttons</span>
@@ -855,7 +869,8 @@ footer { color: var(--muted); font-size: .85rem; border-top: 1px solid var(--lin
           <tr><td><code>doc_events</code></td><td>Lead</td><td>Clear person fields; require Customer Group &amp; Territory; refresh Contacts table</td></tr>
           <tr><td><code>doc_events</code></td><td>Opportunity</td><td>Refresh Contacts table</td></tr>
           <tr><td><code>doc_events</code></td><td>Contact</td><td>Update the Contacts table of every linked Lead/Opportunity</td></tr>
-          <tr><td><code>doc_events</code></td><td>Project Tender</td><td>Update the Opportunity's tender table; Submitted → activity Done, Opportunity Won</td></tr>
+          <tr><td><code>doc_events</code></td><td>Project Tender</td><td>Refuse Submitted without costing; update the Opportunity's tender table; Submitted → activity Done</td></tr>
+          <tr><td><code>doc_events</code></td><td>Opportunity</td><td>Check the approved tender on validate; on save as Won, set it to Won</td></tr>
           <tr><td><code>after_migrate</code></td><td>Lead, Opportunity, Project Tender</td><td>Create fields and property setters, then fill all tables for existing records</td></tr>
           <tr><td><code>override_doctype_dashboards</code></td><td>Lead, Opportunity</td><td>Leads Activity in the Connections tab</td></tr>
         </tbody>

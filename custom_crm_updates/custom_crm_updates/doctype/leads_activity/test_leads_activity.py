@@ -11,6 +11,7 @@ from frappe.utils import nowdate
 
 from erpnext.crm.doctype.lead.lead import make_opportunity
 
+from custom_crm_updates.overrides.opportunity import ATTACHMENTS_FIELD
 from custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity import (
 	ACTIVITY_TABLE,
 	backfill_activity_tables,
@@ -46,6 +47,11 @@ def make_activity(lead, **kwargs):
 		"date": nowdate(),
 	}
 	values.update(kwargs)
+	# A Registration activity cannot be saved without one (see
+	# TestRegistrationAttachment); every other test that uses one is about
+	# what it does to the Lead, not about the attachment.
+	if values["activity_type"] == "Registration" and "attachments" not in values:
+		values["attachments"] = [{"attachment": "/files/_test_registration.pdf"}]
 	return frappe.get_doc(values).insert()
 
 
@@ -71,6 +77,11 @@ def customer_defaults(customer_group=True, territory=True):
 def make_opportunity_from(lead):
 	opportunity = make_opportunity(lead)
 	opportunity.company = opportunity.company or frappe.db.get_value("Company", {}, "name")
+	# An Opportunity cannot be saved with an empty Attachments table, and no
+	# activity can be logged against one (overrides/opportunity.py; see
+	# tests/test_opportunity.py). Every test here is about the activities of an
+	# Opportunity, not about its attachment.
+	opportunity.append(ATTACHMENTS_FIELD, {"attachment": "/files/_test_opportunity.pdf"})
 	return opportunity.insert()
 
 
@@ -102,6 +113,7 @@ class TestLeadsActivity(FrappeTestCase):
 	def test_registration_only_counts_on_creation(self):
 		activity = make_activity(self.lead, activity_type="Call")
 		activity.activity_type = "Registration"
+		activity.append("attachments", {"attachment": "/files/_test_registration.pdf"})
 		activity.save()
 		self.assertEqual(qualification(self.lead), "Unqualified")
 
@@ -171,7 +183,7 @@ class TestLeadsActivity(FrappeTestCase):
 		with self.assertRaises(frappe.LinkExistsError):
 			frappe.delete_doc("Lead", self.lead)
 
-	def test_lead_table_lists_activities_newest_first(self):
+	def test_lead_table_lists_activities_oldest_first(self):
 		older = make_activity(self.lead, date="2026-01-01")
 		newer = make_activity(
 			self.lead,
@@ -184,14 +196,22 @@ class TestLeadsActivity(FrappeTestCase):
 		)
 		make_activity(make_lead().name)  # someone else's activity
 
+		# oldest at the top, the new one appended at the bottom
 		rows = table_rows(self.lead)
-		self.assertEqual([r.activity for r in rows], [newer.name, older.name])
+		self.assertEqual([r.activity for r in rows], [older.name, newer.name])
 		self.assertEqual(
-			(rows[0].activity_type, rows[0].status, rows[0].assigned_to, rows[0].attachments),
+			(rows[1].activity_type, rows[1].status, rows[1].assigned_to, rows[1].attachments),
 			("Meeting", "Planned", "Administrator", 2),
 		)
-		self.assertEqual(str(rows[1].date), "2026-01-01")
-		self.assertEqual(rows[1].attachments, 0)
+		self.assertEqual(str(rows[0].date), "2026-01-01")
+		self.assertEqual(rows[0].attachments, 0)
+
+	def test_back_dated_activity_is_still_appended_at_the_bottom(self):
+		# the order is by creation, so a date in the past does not jump the row
+		# to the top of the table
+		first = make_activity(self.lead)
+		back_dated = make_activity(self.lead, date="2020-01-01")
+		self.assertEqual([r.activity for r in table_rows(self.lead)], [first.name, back_dated.name])
 
 	def test_lead_table_follows_edits(self):
 		activity = make_activity(self.lead)
@@ -257,6 +277,66 @@ class TestLeadsActivity(FrappeTestCase):
 		counts = get_open_count("Lead", self.lead)["count"]
 		activity_count = next(c for c in counts["external_links_found"] if c["doctype"] == "Leads Activity")
 		self.assertEqual(activity_count["count"], 2)
+
+
+class TestRegistrationAttachment(FrappeTestCase):
+	"""A Registration activity needs at least one attachment
+	(LeadsActivity.validate_registration_attachment)."""
+
+	def setUp(self):
+		self.lead = make_lead().name
+
+	def test_registration_without_attachments_is_refused(self):
+		with self.assertRaises(frappe.ValidationError) as error:
+			make_activity(self.lead, activity_type="Registration", attachments=[])
+		message = str(error.exception)
+		# Arabic message, English field and DocType names
+		self.assertIn("مرفقات", message)
+		self.assertIn("Registration", message)
+		self.assertIn("Attachments", message)
+
+	def test_registration_with_an_attachment_saves(self):
+		activity = make_activity(
+			self.lead,
+			activity_type="Registration",
+			attachments=[{"attachment": "/files/trade-licence.pdf", "description": "Trade licence"}],
+		)
+		self.assertEqual(len(activity.attachments), 1)
+
+	def test_row_without_a_file_does_not_count(self):
+		# an empty row the user added and never filled: our own message, not
+		# Frappe's "mandatory field in row 1"
+		with self.assertRaises(frappe.ValidationError) as error:
+			make_activity(self.lead, activity_type="Registration", attachments=[{"description": "x"}])
+		self.assertIn("مرفقات", str(error.exception))
+
+	def test_the_form_marks_the_table_mandatory(self):
+		# the red asterisk and Frappe's own form check follow the Type
+		field = frappe.get_meta("Leads Activity").get_field("attachments")
+		self.assertEqual(field.mandatory_depends_on, 'eval:doc.activity_type=="Registration"')
+
+	def test_other_types_need_none(self):
+		for activity_type in ("Call", "Meeting", "Site Visit", "Tendering", "Other"):
+			self.assertTrue(make_activity(self.lead, activity_type=activity_type, attachments=[]).name)
+
+	def test_rule_holds_for_every_link_type(self):
+		prospect = frappe.get_doc(
+			{"doctype": "Prospect", "company_name": "_Test Activity Prospect " + frappe.generate_hash(length=6)}
+		).insert()
+		with self.assertRaises(frappe.ValidationError):
+			make_activity(prospect.name, link_type="Prospect", activity_type="Registration", attachments=[])
+
+	def test_becoming_a_registration_needs_one_too(self):
+		activity = make_activity(self.lead, activity_type="Call")
+		activity.activity_type = "Registration"
+		with self.assertRaises(frappe.ValidationError):
+			activity.save()
+
+	def test_emptying_the_table_is_refused(self):
+		activity = make_activity(self.lead, activity_type="Registration")
+		activity.attachments = []
+		with self.assertRaises(frappe.ValidationError):
+			activity.save()
 
 
 class TestLeadLayout(FrappeTestCase):

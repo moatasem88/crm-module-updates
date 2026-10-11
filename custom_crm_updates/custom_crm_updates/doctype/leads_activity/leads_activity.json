@@ -103,6 +103,7 @@
    "fieldname": "attachments",
    "fieldtype": "Table",
    "label": "Attachments",
+   "mandatory_depends_on": "eval:doc.activity_type==\"Registration\"",
    "options": "Leads Activity Attachment"
   }
  ],

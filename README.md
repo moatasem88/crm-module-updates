@@ -71,6 +71,9 @@ The function is idempotent.
   type, date, status and assigned user. The attachment count is hidden by
   default; add it back with the grid's ⚙ → Add / Remove Columns, where each
   user can also change widths and order.
+  - Rows are ordered ascending by creation: oldest at the top, a new activity
+    appended at the bottom. Ordering by creation rather than by the activity's
+    own Date is what keeps a back-dated activity at the bottom too.
   - The table is read-only because each row mirrors a Leads Activity. Creating,
     editing, re-linking or deleting an activity rebuilds the affected Lead's
     rows (`sync_activity_table`).
@@ -102,12 +105,27 @@ These are applied on every `bench migrate` by
   automation applies only to activities linked to a Lead.
 - **Project Tender tab** (between Items and Activities). It is a read-only
   table (`custom_project_tenders`, made of Opportunity Project Tender rows) of
-  the Project Tenders created for this Opportunity. It shows the tender,
-  project name, client, status and total sell price; the activity and creation
-  date are available via ⚙. See "Tendering → Project Tender" below.
+  the Project Tenders created for this Opportunity, oldest first. It shows the
+  tender, project name, client, status and total sell price; the activity and
+  creation date are available via ⚙. Below it is **Approved Project Tender**
+  (`custom_approved_project_tender`), a read-only link set by the popup
+  described next. See "Tendering → Project Tender" below.
 - **Status.** "Tendering" and "Won" are added to the Status options (a Property
   Setter extending core's list). ERPNext only recomputes Opportunity status on
   quotation events, so these are kept on a normal save.
+- **Status → Won asks which tender was approved.** Choosing "Won" on the form
+  opens a popup listing this Opportunity's Project Tenders (tender, project
+  name, status, total sell price). The tender picked there is stored in
+  Approved Project Tender, and saving the Opportunity sets that tender to
+  **Won** (`apply_approved_tender`). The other tenders are left as they are.
+  - Dismissing the popup puts the Status back to what it was, so a Won is never
+    left behind without an approved tender.
+  - An Opportunity with no Project Tenders at all says so and stays Won.
+  - Setting the status to Won outside the form (list view, bulk edit, API)
+    marks no tender: there is nobody to ask.
+- **Contact Person** lists the Opportunity's own contacts, not its party's
+  (core filters it by `frappe.dynamic_link`, i.e. by the Lead/Customer/Prospect
+  the Opportunity is for).
 - **Contacts tab.** Core's contact list (`contact_html`) is hidden and replaced
   by a read-only **Contacts** table; see "Contacts table" below.
 
@@ -124,6 +142,15 @@ The Lead and Opportunity sections share code:
 - `backfill_activity_tables` (`after_migrate`), which fills the tables of both
   doctypes.
 
+### Customer customizations
+
+- **Create > Opportunity** (`public/js/customer.js`, wired by `doctype_js`).
+  ERPNext already maps a Customer to an Opportunity (`make_opportunity` sets
+  `opportunity_from` = Customer and `party_name` = this Customer) but only
+  offers it through the Connections tab's "+". The same mapper is added to the
+  Create menu, so the Opportunity is built exactly as the rest of ERPNext
+  builds it. Nothing else on the Customer form is changed.
+
 ### Leads Activity (DocType)
 
 This DocType logs a CRM touchpoint against a Lead, Prospect or Opportunity.
@@ -138,6 +165,22 @@ Records are named `CRM-ACT-.YYYY.-.#####`.
 | Link Type (`link_type`) | Select | Lead, Prospect, Opportunity |
 | Link (`link_name`) | Dynamic Link | the list follows Link Type. Changing Link Type clears Link |
 | Attachments (`attachments`) | Table → Leads Activity Attachment | one file per row (Attach + Description) |
+
+Validation (`LeadsActivity.validate`):
+
+- An activity of type **Registration** cannot be saved unless its Attachments
+  table has at least one file. This holds for every Link Type, for an activity
+  that is changed to Registration, for emptying the table on an existing one,
+  and for the API and Data Import as well as the form
+  (`validate_registration_attachment`).
+  - A row with no file picked does not count as an attachment.
+  - On the form, the table is marked **mandatory** as soon as the Type is
+    Registration (`mandatory_depends_on` on the `attachments` field, so the red
+    asterisk follows the Type), and `leads_activity.js` refuses the save with
+    the same message. The form's `validate` runs before Frappe's own mandatory
+    check, so this message is what the user sees rather than the generic
+    "Missing Fields" dialog. Frappe v14 evaluates `mandatory_depends_on` on the
+    form only, which is why the server check is the one that holds.
 
 Automation for activities whose Link Type is Lead (`LeadsActivity.on_update`):
 
@@ -186,12 +229,27 @@ read-only Custom Fields to it, **Opportunity** (`custom_opportunity`) and
     or *Converted*.
   - It is created as the system (`ignore_permissions`): Sales Users have no
     Project Tender role.
+  - A message names the new tender and links to it, so whoever saved the
+    activity knows it was created.
+- **A Project Tender can only be Submitted once it is costed.** All three cost
+  tables — Direct Cost Details, Indirect Cost Details and Overhead / Deduction
+  Details — must have at least one row; otherwise the save is refused, naming
+  the tables that are still empty (`validate_submitted_rows`, Project Tender
+  `validate`). Emptying one of them on an already-submitted tender is refused
+  too.
 - **A Project Tender's status becomes Submitted.** The activity that created it
-  is set to **Done** (a full save, so its tables update), and the Opportunity's
-  status becomes **Won**.
+  is set to **Done** (a full save, so its tables update). The Opportunity is
+  left as it is: several tenders can be submitted for one Opportunity, and
+  which one was approved is decided when the Opportunity itself is set to Won
+  (see "Status → Won" above).
+- **An Opportunity is saved as Won** with an approved tender. That tender is
+  set to **Won** as the system, which runs the contracting app's own Won
+  automation (its Project and Sales Order). If that automation refuses the
+  tender, the whole save is rolled back — Opportunity included — rather than
+  leaving a Won Opportunity whose approved tender never got there.
 - The Opportunity's Project Tender table is updated on every Project Tender
   save and delete.
-- Each step adds a comment to the Opportunity's timeline.
+- Each step adds a comment to the Opportunity's (or the tender's) timeline.
 
 ### Contacts table (Lead and Opportunity)
 
@@ -201,18 +259,44 @@ This is in `custom_crm_updates/overrides/contact.py`. Core's contact list
 On the Lead it is at the end of the Address & Contacts tab; on the Opportunity,
 at the end of the Contacts tab.
 
-- **Rows.** The table lists the same contacts core's list showed: contact,
-  full name, email, mobile, designation and primary flag. Phone and "Linked
-  Via" are available via ⚙.
-  - On a Lead: the contacts linked to the Lead.
-  - On an Opportunity: the contacts linked to the Opportunity, plus those of
-    its party (Lead, Customer or Prospect).
+- **Rows.** Contact, full name, email, mobile, designation and primary flag.
+  Phone and "Linked Via" are available via ⚙. Rows are ordered ascending by
+  creation, like every table here: oldest at the top, a new contact appended at
+  the bottom. The primary contact is shown by its own column rather than by
+  being sorted to the top.
+  - **On an Opportunity: its own contacts, and only those.** The contacts of
+    the Lead it was made from do not appear (core's own contact list does merge
+    them in, but it is hidden).
+  - **On a Lead: its own contacts *and* those of every Opportunity made from
+    it**, so the Lead stays the full picture of who is involved. The Lead's own
+    come first, then each Opportunity's, oldest Opportunity first; "Linked Via"
+    names the record each row came from, and a contact linked to both is listed
+    once.
+  - The Lead follows an Opportunity's contacts being added, removed, re-pointed
+    at another Lead, or the Opportunity itself being deleted
+    (`refresh_party_lead`, Opportunity `on_update` / `on_trash`).
 - **Keeping it current.** The table is recomputed on every Lead/Opportunity
   save. Saving or deleting a Contact also updates every Lead and Opportunity it
   is (or was) linked to.
 - **New Contact.** The button above the table replaces core's. It creates the
-  Contact linked exactly as core's button did: to the Lead, or to the
+  Contact linked to the record it was pressed on — on an Opportunity that is
+  the Opportunity itself, where core's button would have linked it to the
   Opportunity's party.
+
+### Messages
+
+The error messages and alerts of the automations above are written in Arabic,
+with field names, DocType names and status values left in English exactly as
+they appear in the system (`Project Tender`, `Submitted`, `Registration`,
+`Attachments`, …). They are still wrapped in `_()`, so a site can override them
+through a translation file.
+
+Every user on this bench has their language set to `en`, which is why the
+Arabic is the source string: Frappe resolves `_()` against the user's language,
+so an `ar.csv` translation would never be shown to them.
+
+Timeline comments (the audit trail each automation leaves on the record) are
+left in English, matching the comments the app already wrote.
 
 Tests: `custom_crm_updates/custom_crm_updates/doctype/leads_activity/test_leads_activity.py`
 and `custom_crm_updates/tests/test_crm_automation.py`.

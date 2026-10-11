@@ -2,27 +2,36 @@
 
 - A Tendering Leads Activity on an Opportunity creates a Project Tender named
   after the Opportunity, one per activity (create_project_tender_for_activity,
-  called from LeadsActivity.on_update), and moves the Opportunity to
-  "Tendering".
+  called from LeadsActivity.on_update), moves the Opportunity to "Tendering"
+  and tells the user the tender was created.
 - The Opportunity's "Project Tender" tab lists its Project Tenders in a
-  read-only table kept in sync from here (sync_opportunity_tenders).
+  read-only table kept in sync from here (sync_opportunity_tenders), oldest
+  first.
 - A Project Tender becoming "Submitted" marks the activity that created it
-  "Done" and the Opportunity "Won".
+  "Done". The Opportunity is left as it is: which tender was approved is the
+  user's call, and it is made the other way round — setting the Opportunity to
+  "Won" asks which of its tenders was approved (the popup in
+  public/js/opportunity.js) and that one becomes "Won" (apply_approved_tender).
+- A Project Tender can only be "Submitted" once its three cost tables all have
+  rows (validate_submitted_rows).
 
 The link back is two read-only Custom Fields on Project Tender,
 custom_opportunity and custom_leads_activity, created by
-apply_project_tender_customizations (after_migrate).
+apply_project_tender_customizations (after_migrate). The approved tender is
+held by a third, custom_approved_project_tender on Opportunity (created by
+overrides/opportunity.py).
 """
 
 import frappe
 from frappe import _
 from frappe.utils import get_link_to_form
 
-from custom_crm_updates.mirror_table import set_mirror_rows
+from custom_crm_updates.mirror_table import rows_differ, set_mirror_rows
 
 OPPORTUNITY_FIELD = "custom_opportunity"
 ACTIVITY_FIELD = "custom_leads_activity"
 TENDER_TABLE = "custom_project_tenders"
+APPROVED_TENDER_FIELD = "custom_approved_project_tender"
 TENDER_ROW_FIELDS = (
 	"project_tender",
 	"project_name",
@@ -31,6 +40,12 @@ TENDER_ROW_FIELDS = (
 	"total_sell_price",
 	"leads_activity",
 	"creation_date",
+)
+# A Project Tender is only ready to be submitted once it is fully costed.
+SUBMITTED_REQUIRED_TABLES = (
+	"direct_cost_details",
+	"indirect_cost_details",
+	"overhead_deduction_details",
 )
 
 CUSTOM_FIELDS = {
@@ -96,6 +111,18 @@ def create_project_tender_for_activity(activity):
 		),
 	)
 
+	# The activity is saved from its own form, where nothing else would say
+	# that a Project Tender had just appeared on the Opportunity.
+	# Arabic message, English DocType and record names (see README).
+	frappe.msgprint(
+		_("تم إنشاء Project Tender {0} للـ Opportunity {1} بنجاح.").format(
+			get_link_to_form("Project Tender", tender.name),
+			get_link_to_form("Opportunity", opportunity.name),
+		),
+		title=_("تم إنشاء Project Tender"),
+		indicator="green",
+	)
+
 
 def get_opportunity_customer(opportunity):
 	"""Project Tender's Client is a mandatory Customer link."""
@@ -135,15 +162,37 @@ def convert_prospect_to_customer(prospect):
 	)
 
 
+def validate_submitted_rows(doc, method=None):
+	"""doc_events: Project Tender validate. Submitting a tender is sending a
+	price to the client, so all three cost tables have to be filled in first.
+	Checked on validate rather than on the status change alone, so emptying a
+	table on an already-submitted tender is refused too."""
+	if doc.status != "Submitted":
+		return
+
+	# Labels are left untranslated: field names stay as they are in the system.
+	empty = [doc.meta.get_label(fieldname) for fieldname in SUBMITTED_REQUIRED_TABLES if not doc.get(fieldname)]
+	if empty:
+		frappe.throw(
+			_("لا يمكن تحويل Project Tender إلى الحالة Submitted قبل استكمال بيانات الجداول الفرعية. أضف صفاً واحداً على الأقل في: {0}.").format(
+				"، ".join(empty)
+			),
+			title=_("Project Tender غير مكتمل"),
+		)
+
+
 def on_update(doc, method=None):
 	"""doc_events: Project Tender on_update (after contracting's own)."""
 	before = doc.get_doc_before_save()
-	for opportunity in {doc.get(OPPORTUNITY_FIELD), before and before.get(OPPORTUNITY_FIELD)} - {None}:
-		sync_opportunity_tenders(opportunity)
+	# skip_opportunity_sync: saved from apply_approved_tender, i.e. from the
+	# Opportunity's own save, which refreshes its table itself (see there).
+	if not doc.flags.get("skip_opportunity_sync"):
+		for opportunity in {doc.get(OPPORTUNITY_FIELD), before and before.get(OPPORTUNITY_FIELD)} - {None}:
+			sync_opportunity_tenders(opportunity)
 
+	# The Opportunity is deliberately left alone here: see the module docstring.
 	if doc.status == "Submitted" and doc.has_value_changed("status"):
 		mark_activity_done(doc)
-		mark_opportunity_won(doc)
 
 
 def on_trash(doc, method=None):
@@ -167,31 +216,99 @@ def mark_activity_done(tender):
 	activity.save()
 
 
-def mark_opportunity_won(tender):
-	name = tender.get(OPPORTUNITY_FIELD)
-	if not name or not frappe.db.exists("Opportunity", name):
-		return
+@frappe.whitelist()
+def get_opportunity_tenders(opportunity):
+	"""The list behind the "which tender was approved?" popup
+	(public/js/opportunity.js), oldest first like the Opportunity's own table.
 
-	opportunity = frappe.get_doc("Opportunity", name)
-	if opportunity.status == "Won":
-		return
-	opportunity.db_set("status", "Won", notify=True)
-	opportunity.add_comment(
-		"Info",
-		_("Status set to {0}: Project Tender {1} was submitted").format(
-			frappe.bold(_("Won")), get_link_to_form("Project Tender", tender.name)
-		),
+	Read as the system, exactly like that table: Project Tender is a
+	contracting doctype, and the Sales User closing the Opportunity has no
+	role on it."""
+	frappe.has_permission("Opportunity", doc=opportunity, throw=True)
+
+	return frappe.get_all(
+		"Project Tender",
+		filters={OPPORTUNITY_FIELD: opportunity},
+		fields=["name", "project_name", "client", "status", "total_sell_price"],
+		order_by="creation asc",
 	)
 
 
-def sync_opportunity_tenders(opportunity, exclude=None):
-	if not frappe.db.exists("Opportunity", opportunity):
+def validate_approved_tender(doc, method=None):
+	"""doc_events: Opportunity validate. The field is read-only and the popup
+	only offers this Opportunity's own tenders; this covers a save made over
+	the API or from the bench console."""
+	tender = doc.get(APPROVED_TENDER_FIELD)
+	if not tender or not frappe.db.exists("Project Tender", tender):
 		return
 
+	if frappe.db.get_value("Project Tender", tender, OPPORTUNITY_FIELD) != doc.name:
+		frappe.throw(
+			_("Project Tender {0} لم يُنشأ على هذا الـ Opportunity، ولا يمكن اعتماده له.").format(
+				get_link_to_form("Project Tender", tender)
+			),
+			title=_("Project Tender غير صحيح"),
+		)
+
+
+def apply_approved_tender(doc, method=None):
+	"""doc_events: Opportunity on_update. Setting an Opportunity to "Won" means
+	one of its Project Tenders was approved; the user picks which in the popup
+	(public/js/opportunity.js), and it is that tender that is now Won."""
+	tender = doc.get(APPROVED_TENDER_FIELD)
+	if doc.status != "Won" or not tender or not frappe.db.exists("Project Tender", tender):
+		return
+
+	before = doc.get_doc_before_save()
+	# An ordinary re-save of an Opportunity that is already Won: nothing new.
+	if before and before.status == "Won" and before.get(APPROVED_TENDER_FIELD) == tender:
+		return
+
+	if not set_tender_won(tender, doc):
+		return
+
+	doc.add_comment(
+		"Info",
+		_("Project Tender {0} set to {1}: it is the approved one").format(
+			get_link_to_form("Project Tender", tender), frappe.bold(_("Won"))
+		),
+	)
+	refresh_tender_rows(doc)
+
+
+def set_tender_won(tender_name, opportunity):
+	"""Mark the approved Project Tender "Won"; contracting's own Won automation
+	then raises its Project and Sales Order. Saved as the system, like every
+	other tender write from here.
+
+	Anything that automation refuses (a linked Tender that isn't Complete, say)
+	rolls this save back, Opportunity included, rather than leaving a Won
+	Opportunity whose approved tender never got there. Returns False if the
+	tender was already Won."""
+	tender = frappe.get_doc("Project Tender", tender_name)
+	if tender.status == "Won":
+		return False
+
+	tender.status = "Won"
+	tender.flags.ignore_permissions = True
+	# The Opportunity is mid-save; apply_approved_tender refreshes its table.
+	tender.flags.skip_opportunity_sync = True
+	tender.save()
+	tender.add_comment(
+		"Info",
+		_("Status set to {0}: approved for Opportunity {1}").format(
+			frappe.bold(_("Won")), get_link_to_form("Opportunity", opportunity.name)
+		),
+	)
+	return True
+
+
+def tender_rows(opportunity, exclude=None):
+	"""Oldest first, so a new Project Tender is appended at the bottom."""
 	filters = {OPPORTUNITY_FIELD: opportunity}
 	if exclude:
 		filters["name"] = ["!=", exclude]
-	tenders = frappe.get_all(
+	return frappe.get_all(
 		"Project Tender",
 		filters=filters,
 		fields=[
@@ -203,9 +320,28 @@ def sync_opportunity_tenders(opportunity, exclude=None):
 			f"{ACTIVITY_FIELD} as leads_activity",
 			"date(creation) as creation_date",
 		],
-		order_by="creation desc",
+		order_by="creation asc",
 	)
-	set_mirror_rows("Opportunity", opportunity, TENDER_TABLE, tenders, TENDER_ROW_FIELDS)
+
+
+def sync_opportunity_tenders(opportunity, exclude=None):
+	if not frappe.db.exists("Opportunity", opportunity):
+		return
+
+	set_mirror_rows(
+		"Opportunity", opportunity, TENDER_TABLE, tender_rows(opportunity, exclude), TENDER_ROW_FIELDS
+	)
+
+
+def refresh_tender_rows(doc):
+	"""The table of an Opportunity that is being saved right now: written
+	through the document itself, and without the modified bump
+	sync_opportunity_tenders makes — the form doing the saving would otherwise
+	come back one step behind the database and refuse its next save."""
+	rows = tender_rows(doc.name)
+	if rows_differ(doc.get(TENDER_TABLE), rows, TENDER_ROW_FIELDS):
+		doc.set(TENDER_TABLE, rows)
+		doc.update_child_table(TENDER_TABLE)
 
 
 def backfill_opportunity_tenders():

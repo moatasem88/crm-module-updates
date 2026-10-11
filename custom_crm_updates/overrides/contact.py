@@ -1,10 +1,17 @@
 """Contacts table on Lead and Opportunity, in place of core's contact_html.
 
-A read-only table (Leads Contact Detail rows) of the same contacts core's
-contact list shows:
-- Lead: contacts linked to the Lead;
-- Opportunity: contacts linked to the Opportunity, plus those of its party
-  (the Lead / Customer / Prospect it is for).
+A read-only table (Leads Contact Detail rows) whose rows depend on which
+document is showing it:
+
+- an Opportunity shows the contacts linked to the Opportunity itself, and only
+  those, so a deal's contact list is not diluted by the Lead's (core's own
+  contact list, hidden, does merge them in);
+- a Lead shows its own contacts *and* those of every Opportunity made from it,
+  so the Lead stays the full picture of who is involved with that client.
+
+The "New Contact" button above each table links the contact to the document it
+was pressed on (public/js/leads_activity_section.js), and the Opportunity's
+Contact Person field lists its own contacts (public/js/opportunity.js).
 
 Kept current two ways: the Lead/Opportunity recomputes it on its own save
 (doc_events validate), and a Contact pushes it to every document it is or was
@@ -31,8 +38,6 @@ CONTACT_ROW_FIELDS = (
 	"linked_via",
 )
 TABLE_DOCTYPES = ("Lead", "Opportunity")
-# What an Opportunity can be for (Opportunity.opportunity_from).
-PARTY_DOCTYPES = ("Lead", "Customer", "Prospect")
 
 
 def contact_table_fields(insert_after):
@@ -56,14 +61,39 @@ def contact_table_fields(insert_after):
 	]
 
 
-def get_contact_rows(doctype, name, party=None, exclude=None):
-	"""party: (opportunity_from, party_name) of an Opportunity."""
-	sources = [(doctype, name)]
-	if party and all(party):
-		sources.append(tuple(party))
+def contact_sources(doctype, name, exclude_opportunity=None):
+	"""The documents whose contacts this table lists. An Opportunity lists its
+	own; a Lead lists its own first, then those of each Opportunity made from
+	it, oldest Opportunity first.
 
+	exclude_opportunity: an Opportunity being deleted. It is still in the
+	database while on_trash runs, so it has to be left out by hand."""
+	sources = [(doctype, name)]
+	if doctype != "Lead":
+		return sources
+
+	sources += [
+		("Opportunity", opportunity)
+		for opportunity in frappe.get_all(
+			"Opportunity",
+			filters={"opportunity_from": "Lead", "party_name": name},
+			pluck="name",
+			order_by="creation asc",
+		)
+		if opportunity != exclude_opportunity
+	]
+	return sources
+
+
+def get_contact_rows(doctype, name, exclude=None, exclude_opportunity=None):
+	"""Ascending by creation within each source, so the oldest contact is at
+	the top and a new one is appended at the bottom of its group. The primary
+	contact is flagged by its own column rather than by being sorted first, so
+	the order is the same in every CRM table. A contact linked to both a Lead
+	and one of its Opportunities is listed once, under the first source that
+	has it."""
 	rows, seen = [], {exclude}
-	for link_doctype, link_name in sources:
+	for link_doctype, link_name in contact_sources(doctype, name, exclude_opportunity):
 		contacts = frappe.get_all(
 			"Contact",
 			filters=[
@@ -81,7 +111,7 @@ def get_contact_rows(doctype, name, party=None, exclude=None):
 				"is_primary_contact",
 			],
 			# qualified: the Dynamic Link join has its own creation column
-			order_by="`tabContact`.is_primary_contact desc, `tabContact`.creation asc",
+			order_by="`tabContact`.creation asc",
 		)
 		for c in contacts:
 			if c.name in seen:
@@ -102,25 +132,17 @@ def get_contact_rows(doctype, name, party=None, exclude=None):
 	return rows
 
 
-def party_of(doc):
-	if doc.doctype == "Opportunity":
-		return (doc.opportunity_from, doc.party_name)
-
-
-def sync_contact_table(doctype, name, exclude=None):
+def sync_contact_table(doctype, name, exclude=None, exclude_opportunity=None):
 	if not frappe.db.exists(doctype, name):
 		return
 
-	party = None
-	if doctype == "Opportunity":
-		party = frappe.db.get_value("Opportunity", name, ["opportunity_from", "party_name"])
-	rows = get_contact_rows(doctype, name, party, exclude)
+	rows = get_contact_rows(doctype, name, exclude, exclude_opportunity)
 	set_mirror_rows(doctype, name, CONTACT_TABLE, rows, CONTACT_ROW_FIELDS, bump_modified=False)
 
 
 def refresh_own_table(doc, method=None):
 	"""doc_events validate (Lead, Opportunity): recompute in the save itself."""
-	rows = get_contact_rows(doc.doctype, doc.name, party_of(doc))
+	rows = get_contact_rows(doc.doctype, doc.name)
 	if rows_differ(doc.get(CONTACT_TABLE), rows, CONTACT_ROW_FIELDS):
 		doc.set(CONTACT_TABLE, rows)
 
@@ -139,19 +161,45 @@ def contact_links(contact):
 	return {(link.link_doctype, link.link_name) for link in contact.links if link.link_name}
 
 
+def lead_of(opportunity):
+	"""The Lead an Opportunity was made from, if it was made from one."""
+	party = frappe.db.get_value("Opportunity", opportunity, ["opportunity_from", "party_name"])
+	if party and party[0] == "Lead":
+		return party[1]
+
+
 def affected_docs(links):
+	"""The documents whose table a contact change affects: the Leads and
+	Opportunities it is linked to, plus the Lead behind each of those
+	Opportunities, which rolls its contacts up."""
 	docs = set()
 	for link_doctype, link_name in links:
-		if link_doctype in TABLE_DOCTYPES:
-			docs.add((link_doctype, link_name))
-		if link_doctype in PARTY_DOCTYPES:
-			for opportunity in frappe.get_all(
-				"Opportunity",
-				filters={"opportunity_from": link_doctype, "party_name": link_name},
-				pluck="name",
-			):
-				docs.add(("Opportunity", opportunity))
+		if link_doctype not in TABLE_DOCTYPES:
+			continue
+		docs.add((link_doctype, link_name))
+
+		if link_doctype == "Opportunity":
+			lead = lead_of(link_name)
+			if lead:
+				docs.add(("Lead", lead))
 	return docs
+
+
+def refresh_party_lead(doc, method=None):
+	"""doc_events Opportunity on_update / on_trash: a Lead rolls up the
+	contacts of its Opportunities, so it has to follow an Opportunity being
+	created, re-pointed at another Lead, or deleted."""
+	before = doc.get_doc_before_save()
+	leads = {lead_of(doc.name)} if method != "on_trash" else set()
+	if before and before.opportunity_from == "Lead":
+		leads.add(before.party_name)
+	if method == "on_trash" and doc.opportunity_from == "Lead":
+		leads.add(doc.party_name)
+
+	for lead in leads - {None}:
+		sync_contact_table(
+			"Lead", lead, exclude_opportunity=doc.name if method == "on_trash" else None
+		)
 
 
 def on_contact_update(doc, method=None):
@@ -170,9 +218,22 @@ def backfill_contact_tables():
 	"""after_migrate: fill the tables for contacts that predate them."""
 	links = frappe.get_all(
 		"Dynamic Link",
-		filters={"parenttype": "Contact", "link_doctype": ["in", TABLE_DOCTYPES + PARTY_DOCTYPES]},
+		filters={"parenttype": "Contact", "link_doctype": ["in", TABLE_DOCTYPES]},
 		fields=["link_doctype", "link_name"],
 		distinct=True,
 	)
-	for doctype, name in affected_docs({(link.link_doctype, link.link_name) for link in links}):
+	docs = affected_docs({(link.link_doctype, link.link_name) for link in links})
+	# Also everything that already has rows, so the party contacts the
+	# Opportunities mirrored before the two were separated are dropped - those
+	# Opportunities have no contact link of their own to be found above.
+	docs |= {
+		(row.parenttype, row.parent)
+		for row in frappe.get_all(
+			"Leads Contact Detail",
+			filters={"parenttype": ["in", TABLE_DOCTYPES], "parentfield": CONTACT_TABLE},
+			fields=["parenttype", "parent"],
+			distinct=True,
+		)
+	}
+	for doctype, name in docs:
 		sync_contact_table(doctype, name)

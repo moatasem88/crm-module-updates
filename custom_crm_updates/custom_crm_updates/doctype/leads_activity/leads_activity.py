@@ -9,13 +9,18 @@ Activities linked to a Lead drive its Qualification Status:
 - an activity reaching status "Done" marks the Lead "Qualified";
 - a Registration activity reaching "Done" also converts the Lead to a Customer.
 
+A Registration activity cannot be saved without at least one attachment: it is
+the activity that registers the client, and its paperwork is what the Customer
+is created from.
+
 A Tendering activity on an Opportunity creates a Project Tender for it (one per
 activity; see custom_crm_updates/overrides/project_tender.py).
 
 Activities linked to a Lead or an Opportunity are also mirrored into that
 document's read-only activities table (Leads Activity Detail rows), kept in
-sync on every save and delete. Each document only lists the activities linked
-to it directly: an Opportunity made from a Lead does not show the Lead's.
+sync on every save and delete, oldest first. Each document only lists the
+activities linked to it directly: an Opportunity made from a Lead does not show
+the Lead's.
 """
 
 import frappe
@@ -33,6 +38,29 @@ DETAIL_FIELDS = ("activity", "activity_type", "date", "status", "assigned_to", "
 
 
 class LeadsActivity(Document):
+	def validate(self):
+		self.validate_registration_attachment()
+
+	def validate_registration_attachment(self):
+		"""A Registration is what converts the Lead into a Customer, so the
+		document it was registered with has to be on file. Enforced here
+		rather than with `reqd` on the table: the rule is per activity type,
+		and it has to hold for the API and Data Import too. The form shows the
+		same rule through the table's mandatory_depends_on and repeats this
+		message before saving (leads_activity.js).
+
+		A row with no file is not an attachment: counting it would hand the
+		user Frappe's generic "mandatory field in row 1" error instead of this
+		one, which says what is actually needed."""
+		if self.activity_type != "Registration":
+			return
+
+		if not [row for row in self.attachments if row.attachment]:
+			frappe.throw(
+				_("لا يمكن حفظ Activity من النوع Registration بدون مرفقات. أرفق ملفاً واحداً على الأقل في جدول Attachments."),
+				title=_("مرفق مطلوب"),
+			)
+
 	def on_update(self):
 		# None on insert: get_doc_before_save is only loaded for existing docs
 		before = self.get_doc_before_save()
@@ -109,7 +137,10 @@ class LeadsActivity(Document):
 
 def sync_activity_table(doctype, name, exclude=None):
 	"""Rebuild a Lead's/Opportunity's read-only activities table from the
-	activities linked to it, newest first. No-op when the table is already
+	activities linked to it, ascending by creation: the oldest at the top and
+	every new activity appended at the bottom, like every other CRM table.
+	Ordering by creation rather than by the activity's own Date is what keeps
+	that true for a back-dated activity. No-op when the table is already
 	current, so it is safe to call repeatedly (see backfill_activity_tables)."""
 	if not frappe.db.exists(doctype, name):
 		return
@@ -121,7 +152,7 @@ def sync_activity_table(doctype, name, exclude=None):
 		"Leads Activity",
 		filters=filters,
 		fields=["name as activity", "activity_type", "date", "status", "assigned_to"],
-		order_by="date desc, creation desc",
+		order_by="creation asc",
 	)
 
 	attachment_counts = dict(

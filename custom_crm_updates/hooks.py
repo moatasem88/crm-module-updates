@@ -31,6 +31,7 @@ required_apps = ["erpnext"]
 doctype_js = {
 	"Lead": ["public/js/leads_activity_section.js", "public/js/lead.js"],
 	"Opportunity": ["public/js/leads_activity_section.js", "public/js/opportunity.js"],
+	"Customer": ["public/js/customer.js"],
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -138,8 +139,22 @@ doc_events = {
 		],
 		"after_insert": "custom_crm_updates.overrides.contact.refresh_after_insert",
 	},
+	"Leads Activity": {
+		"validate": "custom_crm_updates.overrides.opportunity.validate_activity_source",
+	},
 	"Opportunity": {
-		"validate": "custom_crm_updates.overrides.contact.refresh_own_table",
+		"validate": [
+			"custom_crm_updates.overrides.contact.refresh_own_table",
+			"custom_crm_updates.overrides.project_tender.validate_approved_tender",
+			"custom_crm_updates.overrides.opportunity.set_title",
+			"custom_crm_updates.overrides.opportunity.validate_attachments",
+			"custom_crm_updates.overrides.opportunity.calculate_contributions",
+		],
+		"on_update": [
+			"custom_crm_updates.overrides.project_tender.apply_approved_tender",
+			"custom_crm_updates.overrides.contact.refresh_party_lead",
+		],
+		"on_trash": "custom_crm_updates.overrides.contact.refresh_party_lead",
 	},
 	"Contact": {
 		"on_update": "custom_crm_updates.overrides.contact.on_contact_update",
@@ -147,6 +162,7 @@ doc_events = {
 	},
 	# contracting app; never fires if it isn't installed
 	"Project Tender": {
+		"validate": "custom_crm_updates.overrides.project_tender.validate_submitted_rows",
 		"on_update": "custom_crm_updates.overrides.project_tender.on_update",
 		"on_trash": "custom_crm_updates.overrides.project_tender.on_trash",
 	},

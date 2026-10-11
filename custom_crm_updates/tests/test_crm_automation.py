@@ -1,14 +1,20 @@
 # Copyright (c) 2026, smart and contributors
 # For license information, please see license.txt
 
-"""Tendering -> Project Tender, Lead -> Customer conversion and the Contacts
-table (custom_crm_updates/overrides/{project_tender,lead,contact}.py)."""
+"""Tendering -> Project Tender, the approved tender behind a Won Opportunity,
+Lead -> Customer conversion and the Contacts table
+(custom_crm_updates/overrides/{project_tender,lead,contact}.py)."""
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from custom_crm_updates.overrides.contact import CONTACT_TABLE
-from custom_crm_updates.overrides.project_tender import TENDER_TABLE
+from custom_crm_updates.overrides.contact import CONTACT_TABLE, backfill_contact_tables
+from custom_crm_updates.overrides.opportunity import ATTACHMENTS_FIELD
+from custom_crm_updates.overrides.project_tender import (
+	APPROVED_TENDER_FIELD,
+	SUBMITTED_REQUIRED_TABLES,
+	TENDER_TABLE,
+)
 from custom_crm_updates.custom_crm_updates.doctype.leads_activity.test_leads_activity import (
 	customer_defaults,
 	make_activity,
@@ -26,6 +32,29 @@ def customer_of(lead):
 
 def tenders_of(activity):
 	return frappe.get_all("Project Tender", {"custom_leads_activity": activity}, pluck="name")
+
+
+def status_of(tender):
+	return frappe.db.get_value("Project Tender", tender, "status")
+
+
+def fill_cost_tables(tender):
+	"""A Project Tender can only be Submitted once all three of its cost
+	tables have rows (validate_submitted_rows). The rows are as thin as the
+	tables allow: Tender and Cost Component are mandatory links, and standing
+	real ones up would be testing the contracting app rather than this rule,
+	so the save ignores mandatory fields."""
+	for fieldname in SUBMITTED_REQUIRED_TABLES:
+		tender.append(fieldname, {})
+	tender.flags.ignore_mandatory = True
+
+
+def submit_tender(name):
+	tender = frappe.get_doc("Project Tender", name)
+	fill_cost_tables(tender)
+	tender.status = "Submitted"
+	tender.save()
+	return tender
 
 
 class TestLeadToCustomer(FrappeTestCase):
@@ -165,20 +194,33 @@ class TestTendering(FrappeTestCase):
 		(row,) = frappe.get_doc("Opportunity", self.opportunity.name).get(TENDER_TABLE)
 		self.assertEqual(row.status, "Under Review")
 
-	def test_submitted_tender_marks_activity_done_and_opportunity_won(self):
+	def test_submitted_tender_marks_only_its_activity_done(self):
 		activity = self.tendering()
 		other = self.tendering()
-		tender = frappe.get_doc("Project Tender", tenders_of(activity.name)[0])
 
-		tender.status = "Submitted"
-		tender.save()
+		submit_tender(tenders_of(activity.name)[0])
 		self.assertEqual(frappe.db.get_value("Leads Activity", activity.name, "status"), "Done")
 		self.assertEqual(frappe.db.get_value("Leads Activity", other.name, "status"), "Planned")
-		self.assertEqual(frappe.db.get_value("Opportunity", self.opportunity.name, "status"), "Won")
+
+		# the Opportunity is left alone: which tender was approved is decided
+		# when the Opportunity itself is set to Won, not by submitting one
+		self.assertEqual(
+			frappe.db.get_value("Opportunity", self.opportunity.name, "status"), "Tendering"
+		)
 
 		# the Opportunity's activities table followed the activity
 		rows = frappe.get_doc("Opportunity", self.opportunity.name).custom_leads_activities
 		self.assertEqual({r.activity: r.status for r in rows}[activity.name], "Done")
+
+	def test_tender_creation_tells_the_user(self):
+		frappe.clear_messages()
+		activity = self.tendering()
+
+		(name,) = tenders_of(activity.name)
+		messages = " ".join(message.get("message", "") for message in frappe.get_message_log())
+		self.assertIn("تم إنشاء", messages)
+		self.assertIn(name, messages)
+		self.assertIn(self.opportunity.name, messages)
 
 	def test_won_opportunity_is_not_set_back_to_tendering(self):
 		frappe.db.set_value("Opportunity", self.opportunity.name, "status", "Won")
@@ -191,6 +233,13 @@ class TestTendering(FrappeTestCase):
 			opportunity.status = status
 			opportunity.save()
 			self.assertEqual(frappe.db.get_value("Opportunity", opportunity.name, "status"), status)
+
+	def test_opportunity_table_lists_tenders_oldest_first(self):
+		first = tenders_of(self.tendering().name)[0]
+		second = tenders_of(self.tendering().name)[0]
+
+		rows = frappe.get_doc("Opportunity", self.opportunity.name).get(TENDER_TABLE)
+		self.assertEqual([row.project_tender for row in rows], [first, second])
 
 	def test_deleting_tender_removes_row(self):
 		activity = self.tendering()
@@ -211,11 +260,189 @@ class TestTendering(FrappeTestCase):
 				"opportunity_from": "Customer",
 				"party_name": customer.name,
 				"company": frappe.db.get_value("Company", {}, "name"),
+				# an Opportunity cannot be saved without one
+				# (overrides/opportunity.py: validate_attachments)
+				ATTACHMENTS_FIELD: [{"attachment": "/files/_test_opportunity.pdf"}],
 			}
 		).insert()
 
 		activity = make_activity(opportunity.name, link_type="Opportunity", activity_type="Tendering")
 		self.assertEqual(frappe.db.get_value("Project Tender", tenders_of(activity.name)[0], "client"), customer.name)
+
+
+class TestSubmittedRequirements(FrappeTestCase):
+	"""A Project Tender needs rows in all three of its cost tables before it
+	can be Submitted (overrides/project_tender.py: validate_submitted_rows)."""
+
+	def setUp(self):
+		self.lead = make_lead(company_name="_Test Submit Co " + frappe.generate_hash(length=6)).name
+		self.opportunity = make_opportunity_from(self.lead).name
+		with customer_defaults():
+			activity = make_activity(
+				self.opportunity, link_type="Opportunity", activity_type="Tendering"
+			)
+		self.activity = activity.name
+		self.tender = tenders_of(self.activity)[0]
+
+	def submit(self, *tables):
+		tender = frappe.get_doc("Project Tender", self.tender)
+		for fieldname in tables:
+			tender.append(fieldname, {})
+		tender.status = "Submitted"
+		# see fill_cost_tables: the rows are deliberately thin
+		tender.flags.ignore_mandatory = True
+		tender.save()
+
+	def label(self, fieldname):
+		return frappe.get_meta("Project Tender").get_label(fieldname)
+
+	def test_tender_with_no_costing_cannot_be_submitted(self):
+		with self.assertRaises(frappe.ValidationError) as error:
+			self.submit()
+
+		message = str(error.exception)
+		# Arabic message; the table names stay as they are in the system
+		self.assertIn("لا يمكن", message)
+		self.assertIn("Submitted", message)
+		for fieldname in SUBMITTED_REQUIRED_TABLES:
+			self.assertIn(self.label(fieldname), message)
+		self.assertEqual(status_of(self.tender), "Draft")
+		self.assertEqual(frappe.db.get_value("Leads Activity", self.activity, "status"), "Planned")
+
+	def test_every_one_of_the_three_tables_is_required(self):
+		for missing in SUBMITTED_REQUIRED_TABLES:
+			filled = [f for f in SUBMITTED_REQUIRED_TABLES if f != missing]
+			with self.assertRaises(frappe.ValidationError) as error:
+				self.submit(*filled)
+
+			message = str(error.exception)
+			self.assertIn(self.label(missing), message)
+			for fieldname in filled:
+				self.assertNotIn(self.label(fieldname), message)
+
+	def test_submitted_once_all_three_have_rows(self):
+		self.submit(*SUBMITTED_REQUIRED_TABLES)
+		self.assertEqual(status_of(self.tender), "Submitted")
+		self.assertEqual(frappe.db.get_value("Leads Activity", self.activity, "status"), "Done")
+
+	def test_other_statuses_need_no_rows(self):
+		for status in ("Under Review", "Lost", "Cancelled"):
+			tender = frappe.get_doc("Project Tender", self.tender)
+			tender.status = status
+			tender.save()
+			self.assertEqual(status_of(self.tender), status)
+
+	def test_emptying_a_table_on_a_submitted_tender_is_refused(self):
+		self.submit(*SUBMITTED_REQUIRED_TABLES)
+
+		tender = frappe.get_doc("Project Tender", self.tender)
+		tender.indirect_cost_details = []
+		with self.assertRaises(frappe.ValidationError):
+			tender.save()
+
+
+class TestApprovedTender(FrappeTestCase):
+	"""Setting an Opportunity to Won marks the Project Tender the user picked
+	in the popup (public/js/opportunity.js) as the approved one
+	(overrides/project_tender.py: apply_approved_tender)."""
+
+	def setUp(self):
+		self.lead = make_lead(company_name="_Test Won Co " + frappe.generate_hash(length=6)).name
+		self.opportunity = make_opportunity_from(self.lead).name
+		with customer_defaults():
+			self.first = self.make_tender()
+			self.second = self.make_tender()
+
+	def make_tender(self, opportunity=None):
+		activity = make_activity(
+			opportunity or self.opportunity, link_type="Opportunity", activity_type="Tendering"
+		)
+		return tenders_of(activity.name)[0]
+
+	def win(self, tender=None, status="Won"):
+		opportunity = frappe.get_doc("Opportunity", self.opportunity)
+		opportunity.status = status
+		opportunity.set(APPROVED_TENDER_FIELD, tender)
+		opportunity.save()
+		return opportunity
+
+	def test_the_selected_tender_is_won_and_the_others_are_not(self):
+		opportunity = self.win(self.first)
+
+		self.assertEqual(status_of(self.first), "Won")
+		self.assertEqual(status_of(self.second), "Draft")
+		self.assertEqual(frappe.db.get_value("Opportunity", self.opportunity, "status"), "Won")
+		self.assertEqual(
+			frappe.db.get_value("Opportunity", self.opportunity, APPROVED_TENDER_FIELD), self.first
+		)
+
+		# the table on the form that did the saving is up to date, and so is
+		# the one in the database
+		for doc in (opportunity, frappe.get_doc("Opportunity", self.opportunity)):
+			statuses = {row.project_tender: row.status for row in doc.get(TENDER_TABLE)}
+			self.assertEqual(statuses, {self.first: "Won", self.second: "Draft"})
+
+	def test_the_saved_form_is_not_left_behind_the_database(self):
+		opportunity = self.win(self.first)
+		self.assertEqual(
+			str(opportunity.modified), str(frappe.db.get_value("Opportunity", self.opportunity, "modified"))
+		)
+
+	def test_won_without_a_selection_changes_no_tender(self):
+		self.win()
+		self.assertEqual(frappe.db.get_value("Opportunity", self.opportunity, "status"), "Won")
+		self.assertEqual((status_of(self.first), status_of(self.second)), ("Draft", "Draft"))
+
+	def test_a_submitted_tender_can_be_the_approved_one(self):
+		# written straight to the database: submit_tender's rows are thin
+		# enough to skip mandatory fields (see fill_cost_tables), and winning
+		# the tender saves it again, this time in full
+		frappe.db.set_value("Project Tender", self.first, "status", "Submitted")
+
+		self.win(self.first)
+		self.assertEqual(status_of(self.first), "Won")
+
+	def test_changing_the_selection_wins_the_new_one(self):
+		self.win(self.first)
+		self.win(self.second)
+		self.assertEqual((status_of(self.first), status_of(self.second)), ("Won", "Won"))
+
+	def test_resaving_a_won_opportunity_does_not_win_it_again(self):
+		self.win(self.first)
+		# as if the tender had been moved on by hand afterwards
+		frappe.db.set_value("Project Tender", self.first, "status", "Lost")
+
+		self.win(self.first)
+		self.assertEqual(status_of(self.first), "Lost")
+
+	def test_a_tender_of_another_opportunity_is_refused(self):
+		other = make_opportunity_from(make_lead().name).name
+		with customer_defaults():
+			stranger = self.make_tender(other)
+
+		with self.assertRaises(frappe.ValidationError) as error:
+			self.win(stranger)
+		self.assertIn("لم يُنشأ", str(error.exception))
+		self.assertIn(stranger, str(error.exception))
+		self.assertEqual(status_of(stranger), "Draft")
+
+	def test_the_popup_lists_this_opportunitys_tenders_oldest_first(self):
+		from custom_crm_updates.overrides.project_tender import get_opportunity_tenders
+
+		other = make_opportunity_from(make_lead().name).name
+		with customer_defaults():
+			self.make_tender(other)
+
+		tenders = get_opportunity_tenders(self.opportunity)
+		self.assertEqual([tender.name for tender in tenders], [self.first, self.second])
+		self.assertEqual(
+			set(tenders[0].keys()),
+			{"name", "project_name", "client", "status", "total_sell_price"},
+		)
+
+	def test_status_other_than_won_leaves_the_tenders_alone(self):
+		self.win(self.first, status="Quotation")
+		self.assertEqual(status_of(self.first), "Draft")
 
 
 class TestContactsTable(FrappeTestCase):
@@ -242,6 +469,15 @@ class TestContactsTable(FrappeTestCase):
 		self.assertEqual((row.full_name, row.designation), (contact.first_name, "Manager"))
 		self.assertEqual(row.email_id, contact.email_id)
 
+	def test_contacts_are_listed_oldest_first(self):
+		# the primary contact is flagged by its own column, not by being
+		# sorted to the top, so every CRM table reads the same way
+		first = self.make_contact(("Lead", self.lead))
+		primary = self.make_contact(("Lead", self.lead), is_primary_contact=1)
+
+		rows = [r.contact for r in self.rows("Lead", self.lead)]
+		self.assertEqual(rows[-2:], [first.name, primary.name])
+
 	def test_contact_edits_and_unlinking_follow(self):
 		contact = self.make_contact(("Lead", self.lead))
 		contact.designation = "CEO"
@@ -259,21 +495,94 @@ class TestContactsTable(FrappeTestCase):
 		frappe.delete_doc("Contact", contact.name)
 		self.assertNotIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
 
-	def test_opportunity_lists_own_and_party_contacts(self):
+	def test_opportunity_shows_only_its_own_contacts(self):
 		lead_contact = self.make_contact(("Lead", self.lead))
 		opportunity = make_opportunity_from(self.lead).name
 		own_contact = self.make_contact(("Opportunity", opportunity))
 
+		# the Opportunity shows its own contact and nothing else - not the
+		# contacts of the Lead it was made from
 		rows = {r.contact: r.linked_via for r in self.rows("Opportunity", opportunity)}
-		self.assertEqual(rows[lead_contact.name], f"Lead {self.lead}")
-		self.assertEqual(rows[own_contact.name], f"Opportunity {opportunity}")
-		# and the Lead doesn't get the Opportunity's own contact
-		self.assertNotIn(own_contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+		self.assertEqual(rows, {own_contact.name: f"Opportunity {opportunity}"})
+		self.assertNotIn(lead_contact.name, rows)
 
-	def test_party_contact_added_later_reaches_opportunity(self):
+	def test_lead_rolls_up_its_opportunity_contacts(self):
+		lead_contact = self.make_contact(("Lead", self.lead))
+		opportunity = make_opportunity_from(self.lead).name
+		own_contact = self.make_contact(("Opportunity", opportunity))
+
+		# the Lead shows both, and says where each one came from
+		rows = {r.contact: r.linked_via for r in self.rows("Lead", self.lead)}
+		self.assertEqual(rows.get(lead_contact.name), f"Lead {self.lead}")
+		self.assertEqual(rows.get(own_contact.name), f"Opportunity {opportunity}")
+		# the Lead's own contacts come first, the Opportunity's after them
+		order = [r.contact for r in self.rows("Lead", self.lead)]
+		self.assertLess(order.index(lead_contact.name), order.index(own_contact.name))
+
+	def test_opportunity_contact_added_later_reaches_the_lead(self):
+		opportunity = make_opportunity_from(self.lead).name
+		contact = self.make_contact(("Opportunity", opportunity))
+		self.assertIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+
+		# and follows the contact being unlinked again
+		contact.links = []
+		contact.save()
+		self.assertNotIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+
+	def test_lead_contact_added_later_stays_with_the_lead(self):
 		opportunity = make_opportunity_from(self.lead).name
 		contact = self.make_contact(("Lead", self.lead))
-		self.assertIn(contact.name, [r.contact for r in self.rows("Opportunity", opportunity)])
+
+		self.assertNotIn(contact.name, [r.contact for r in self.rows("Opportunity", opportunity)])
+		self.assertIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+
+	def test_a_contact_on_both_is_listed_once(self):
+		opportunity = make_opportunity_from(self.lead).name
+		contact = self.make_contact(("Lead", self.lead), ("Opportunity", opportunity))
+
+		rows = [r.contact for r in self.rows("Lead", self.lead)]
+		self.assertEqual(rows.count(contact.name), 1)
+
+	def test_only_this_leads_opportunities_roll_up(self):
+		other_lead = make_lead().name
+		other_opportunity = make_opportunity_from(other_lead).name
+		stranger = self.make_contact(("Opportunity", other_opportunity))
+
+		self.assertNotIn(stranger.name, [r.contact for r in self.rows("Lead", self.lead)])
+		self.assertIn(stranger.name, [r.contact for r in self.rows("Lead", other_lead)])
+
+	def test_deleting_the_opportunity_drops_its_contacts_from_the_lead(self):
+		opportunity = make_opportunity_from(self.lead)
+		contact = self.make_contact(("Opportunity", opportunity.name))
+		self.assertIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+
+		# Frappe refuses an ordinary delete while a Contact links to it, so
+		# this is the forced path - which is the one on_trash has to cover.
+		frappe.delete_doc("Opportunity", opportunity.name, force=True)
+		self.assertNotIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+
+	def test_repointing_the_opportunity_moves_its_contacts(self):
+		opportunity = make_opportunity_from(self.lead)
+		contact = self.make_contact(("Opportunity", opportunity.name))
+		other_lead = make_lead().name
+
+		opportunity.party_name = other_lead
+		opportunity.save()
+		self.assertNotIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+		self.assertIn(contact.name, [r.contact for r in self.rows("Lead", other_lead)])
+
+	def test_backfill_drops_contacts_mirrored_before_the_split(self):
+		# an Opportunity whose table still lists its Lead's contacts, as it
+		# would after migrating from the version that showed both
+		opportunity = make_opportunity_from(self.lead)
+		lead_contact = self.make_contact(("Lead", self.lead))
+		opportunity.append(CONTACT_TABLE, {"contact": lead_contact.name, "full_name": "stale row"})
+		opportunity.update_child_table(CONTACT_TABLE)
+		self.assertTrue(self.rows("Opportunity", opportunity.name))
+
+		backfill_contact_tables()
+		self.assertEqual(self.rows("Opportunity", opportunity.name), [])
+		self.assertIn(lead_contact.name, [r.contact for r in self.rows("Lead", self.lead)])
 
 	def test_new_lead_shows_auto_created_contact(self):
 		# CRM Settings' auto contact creation links the contact in
@@ -302,5 +611,5 @@ class TestContactsTable(FrappeTestCase):
 		)
 		self.assertEqual(
 			opp_order[opp_order.index("total") + 1 : opp_order.index("activities_tab")],
-			["custom_project_tender_tab", TENDER_TABLE],
+			["custom_project_tender_tab", TENDER_TABLE, APPROVED_TENDER_FIELD],
 		)
