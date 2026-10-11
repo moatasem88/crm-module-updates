@@ -1,0 +1,68 @@
+{
+ "actions": [],
+ "creation": "2026-10-11 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "type",
+  "contribution_type",
+  "contribution_value",
+  "final_value",
+  "description"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "\ncivil\nmec\nelec\nelev",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "default": "Percentage",
+   "fieldname": "contribution_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Contribution Type",
+   "options": "\nPercentage\nFixed Amount",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "نسبة مئوية (20 = 20%) عندما يكون Contribution Type = Percentage، والمبلغ نفسه عندما يكون Fixed Amount.",
+   "fieldname": "contribution_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Contribution Value"
+  },
+  {
+   "columns": 2,
+   "fieldname": "final_value",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Final Value",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Custom CRM Updates",
+ "name": "Opportunity Contribution",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

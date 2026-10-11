@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRM Customizations — Guided Walkthrough</title>
+<meta name="description" content="A teaching walkthrough of every customization made to the ERPNext CRM module in this project, in the order it happened.">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ---------- tokens (light) ---------- */
+:root {
+  color-scheme: light;
+  --plane:#f9f9f7; --surface:#fcfcfb; --surface-2:#f2f1ed;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --line:rgba(11,11,11,.10); --grid:#e1e0d9; --baseline:#c3c2b7;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --code-bg:#f4f3ef; --shadow:0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.04);
+  --radius:12px;
+}
+/* ---------- tokens (dark) — selected steps, not an auto flip ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232321;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --line:rgba(255,255,255,.10); --grid:#2c2c2a; --baseline:#383835;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --code-bg:#121211; --shadow:none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232321;
+  --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+  --line:rgba(255,255,255,.10); --grid:#2c2c2a; --baseline:#383835;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --code-bg:#121211; --shadow:none;
+}
+/* ---------- base ---------- */
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{
+  margin:0; background:var(--plane); color:var(--ink);
+  font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.page{display:grid; grid-template-columns:238px minmax(0,1fr); gap:28px; max-width:1240px; margin:0 auto; padding:24px 16px 72px}
+main{min-width:0}
+h1,h2,h3,h4{line-height:1.25; margin:0}
+a{color:var(--s1)}
+code,kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.875em}
+code{background:var(--code-bg); border:1px solid var(--line); border-radius:5px; padding:.12em .35em}
+pre{margin:14px 0 0; background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto}
+pre code{background:none;border:0;padding:0;font-size:13px;line-height:1.6}
+/* ---------- rail ---------- */
+.rail{position:sticky; top:16px; align-self:start; max-height:calc(100vh - 32px); overflow:auto; font-size:13.5px}
+.rail-title{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:16px 0 8px}
+.rail a{display:flex; gap:9px; padding:5px 8px; border-radius:7px; color:var(--ink-2); text-decoration:none}
+.rail a:hover{background:var(--surface-2); color:var(--ink)}
+.rail a span{color:var(--muted); font-variant-numeric:tabular-nums; min-width:1.6em}
+/* ---------- blocks ---------- */
+.titleblock{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:26px 28px; margin-bottom:22px}
+.eyebrow{font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--s1); font-weight:700}
+.titleblock h1{font-size:30px; margin:8px 0 10px; letter-spacing:-.02em}
+.lede{color:var(--ink-2); max-width:70ch; margin:0}
+.meta{display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin-top:18px; padding-top:16px; border-top:1px solid var(--line); font-size:13.5px}
+.meta div:nth-child(odd){color:var(--muted)}
+section{margin:34px 0 0}
+.sheet-head{margin-bottom:16px}
+.sheet-no{font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700}
+.sheet-head h2{font-size:23px; margin:6px 0 8px; letter-spacing:-.01em}
+.sheet-head p{color:var(--ink-2); margin:0; max-width:76ch}
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; margin-top:16px}
+.grid-2{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; margin-top:16px}
+/* ---------- step cards ---------- */
+.step{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; margin-top:16px}
+.step-head{display:flex; gap:14px; align-items:flex-start}
+.step-no{flex:0 0 auto; width:34px; height:34px; border-radius:9px; background:var(--s1); color:#fff; font-weight:700; font-size:14px; display:grid; place-items:center; font-variant-numeric:tabular-nums}
+.step-head h3{font-size:17.5px}
+.step-head p{color:var(--ink-2); margin:5px 0 0; font-size:14.5px}
+.qa{margin-top:14px; display:grid; gap:10px}
+.qa-row{display:grid; grid-template-columns:86px minmax(0,1fr); gap:12px; align-items:baseline}
+.qa-k{font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; color:var(--muted); padding-top:3px}
+.qa-v{margin:0; color:var(--ink-2); font-size:14.5px}
+.qa-v strong{color:var(--ink)}
+.lesson{margin-top:14px; padding:12px 14px; background:var(--surface-2); border-left:3px solid var(--s3); border-radius:0 8px 8px 0; font-size:14px; color:var(--ink-2)}
+.lesson b{color:var(--ink)}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px}
+.chip{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11.5px; background:var(--surface-2); border:1px solid var(--line); border-radius:999px; padding:3px 10px; color:var(--ink-2)}
+/* ---------- callouts ---------- */
+.callout{display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:start; background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--warn); border-radius:0 var(--radius) var(--radius) 0; padding:14px 18px; margin-top:16px}
+.callout.info{border-left-color:var(--s1)} .callout.good{border-left-color:var(--good)}
+.callout .ic{font-weight:700; color:var(--muted); font-size:12px; letter-spacing:.08em; text-transform:uppercase; padding-top:2px}
+.callout p{margin:0; font-size:14.5px; color:var(--ink-2)}
+.callout strong{color:var(--ink)}
+/* ---------- tables ---------- */
+.table-box{overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); margin-top:16px}
+table{border-collapse:collapse; width:100%; font-size:14px}
+th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top}
+thead th{background:var(--surface-2); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+/* ---------- figures / svg ---------- */
+figure{margin:16px 0 0; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px}
+figure svg{display:block; width:100%; height:auto; color:var(--ink-2)}
+figcaption{margin-top:12px; padding-top:12px; border-top:1px solid var(--line); font-size:13.5px; color:var(--muted)}
+.sv-box{fill:var(--surface); stroke:var(--baseline)}
+.sv-box-2{fill:var(--surface-2); stroke:var(--baseline)}
+.sv-acc{stroke:var(--s1); stroke-width:1.5}
+.sv-t{fill:var(--ink); font:700 12.5px system-ui,sans-serif}
+.sv-s{fill:var(--ink-2); font:11.5px system-ui,sans-serif}
+.sv-l{fill:var(--muted); font:11px system-ui,sans-serif}
+.sv-line{stroke:var(--baseline); stroke-width:1.6; fill:none}
+.sv-flow{stroke:var(--s1); stroke-width:1.8; fill:none}
+/* ---------- charts ---------- */
+.chart-wrap{position:relative; height:300px; margin-top:6px}
+details.tableview{margin-top:14px; font-size:14px}
+details.tableview summary{cursor:pointer; color:var(--s1); font-size:13.5px}
+details.tableview table{margin-top:10px}
+/* ---------- misc ---------- */
+.toggle{position:fixed; right:14px; bottom:14px; z-index:9; background:var(--surface); color:var(--ink-2); border:1px solid var(--line); border-radius:999px; padding:9px 15px; font:600 13px system-ui,sans-serif; cursor:pointer; box-shadow:var(--shadow)}
+footer{margin-top:44px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:13px}
+ul.ticks{margin:10px 0 0; padding:0; list-style:none}
+ul.ticks li{position:relative; padding-left:22px; margin-bottom:7px; color:var(--ink-2); font-size:14.5px}
+ul.ticks li::before{content:"✓"; position:absolute; left:2px; color:var(--s3); font-weight:700}
+ol.steps-list{margin:10px 0 0; padding-left:22px; color:var(--ink-2); font-size:14.5px}
+ol.steps-list li{margin-bottom:7px}
+.phase{display:inline-block; font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:3px 9px; border-radius:999px; background:var(--surface-2); color:var(--ink-2); border:1px solid var(--line)}
+@media (max-width:900px){
+  .page{grid-template-columns:minmax(0,1fr); gap:0}
+  .rail{display:none}
+  .qa-row{grid-template-columns:minmax(0,1fr); gap:2px}
+}
+</style>
+</head>
+<body>
+<button class="toggle" id="themeToggle" type="button">Dark / light</button>
+<div class="page">
+<nav class="rail" aria-label="Contents">
+  <div class="rail-title">Orientation</div>
+  <a href="#start"><span>00</span>Where to start</a>
+  <a href="#toolbox"><span>01</span>The five tools</a>
+  <a href="#map"><span>02</span>Map of the work</a>
+  <div class="rail-title">Phase 1 · the foundation</div>
+  <a href="#p1"><span>03</span>Steps 1–17</a>
+  <div class="rail-title">Phase 2 · six modifications</div>
+  <a href="#p2"><span>04</span>Steps 18–24</a>
+  <div class="rail-title">Phase 3 · follow-ups</div>
+  <a href="#p3"><span>05</span>Steps 25–26</a>
+  <div class="rail-title">Putting it together</div>
+  <a href="#journey"><span>06</span>The whole journey</a>
+  <a href="#deploy"><span>07</span>Deploy &amp; verify</a>
+  <a href="#yourself"><span>08</span>Do it yourself</a>
+</nav>
+<main>
+
+<header class="titleblock">
+  <div class="eyebrow">Teaching document · read top to bottom</div>
+  <h1>CRM Customizations: a Guided Walkthrough</h1>
+  <p class="lede">Every change made to the ERPNext <strong>CRM module</strong> in this project, in the order it happened — what was done, where it was done, and why. Written for someone who has used ERPNext but has never customized it, so each step also explains the tool it used and when you would reach for that tool yourself.</p>
+  <div class="meta">
+    <div>App</div><div><code>apps/custom_crm_updates</code></div>
+    <div>Platform</div><div>Frappe v14 · ERPNext v14 · MariaDB</div>
+    <div>DocTypes touched</div><div>Lead, Opportunity, Project Tender, Contact, Leads Activity</div>
+    <div>Companion</div><div><code>docs/crm-customizations-technical-reference.html</code> — the same steps with full code</div>
+  </div>
+</header>
+
+<section id="start">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 00</div>
+    <h2>Where to start</h2>
+    <p>Three things to understand before the first step, so the rest reads as a story rather than a list.</p>
+  </div>
+
+  <div class="panel">
+    <h3 style="font-size:16px">1 · Nothing in ERPNext itself was edited</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">Every change lives in a separate app, <code>custom_crm_updates</code>. ERPNext's own files are untouched, so <code>bench update</code> can upgrade ERPNext without overwriting any of this work. This is the single most important rule in Frappe customization: <strong>you add an app beside ERPNext, you never edit inside it.</strong></p>
+    <h3 style="font-size:16px;margin-top:18px">2 · A DocType is the unit of everything</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">A DocType is a table, a form and a Python class at once. Lead, Opportunity and Contact are ERPNext DocTypes. Customizing the CRM means adding fields to them, reacting to their save events, and creating new DocTypes of your own (this project created five).</p>
+    <h3 style="font-size:16px;margin-top:18px">3 · Layout and fields are created by code, not by clicking</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">You can add a field through the Desk UI (Customize Form). This project does it in Python instead, in functions that run on every <code>bench migrate</code>. The reason is repeatability: the same fields appear on a new site, a test site and a colleague's laptop with one command, and the definitions live in git where they can be reviewed.</p>
+  </div>
+
+  <div class="callout info">
+    <div class="ic">Assumptions</div>
+    <p>Stated once, here, and they hold for both documents. <strong>(a)</strong> The chronology comes from this app's git history (two commits, 7 Oct 2026) and from the step order recorded in the project's own code guide; the work inside the first commit was reconstructed from that order, so "step 4 came before step 5" is reliable while exact timestamps within a day are not. <strong>(b)</strong> <code>Project Tender</code> belongs to a separate in-house app, <code>contracting</code>; it is treated here as a third-party DocType that must not be edited, which is how the code treats it. <strong>(c)</strong> Where a reason was not written down, it is inferred from the code and named as an inference in the text. <strong>(d)</strong> Field counts, Property Setter counts and test counts were read from the live <code>site1.local</code> database and the current source, not estimated.</p>
+  </div>
+</section>
+
+<section id="toolbox">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 01</div>
+    <h2>The five tools — and when to use which</h2>
+    <p>Frappe gives you five ways to change behaviour without editing ERPNext. Every step in this document is one of them. Learn to pick between them and customization stops feeling like guesswork.</p>
+  </div>
+
+  <div class="table-box">
+    <table>
+      <thead><tr><th>Tool</th><th>What it changes</th><th>Lives in</th><th>Reach for it when…</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Custom Field</strong></td><td>Adds a field to an existing DocType</td><td>The site's database (created here by Python)</td><td>You need to store something ERPNext has no field for.</td></tr>
+        <tr><td><strong>Property Setter</strong></td><td>Overrides one property of an existing field (hidden, reqd, options, label, field order)</td><td>The site's database (created here by Python)</td><td>The field exists but must behave differently — hidden, mandatory, extra Select options, moved.</td></tr>
+        <tr><td><strong>Hook</strong> (<code>doc_events</code>)</td><td>Runs your Python when a document is validated or saved</td><td><code>hooks.py</code> in your app</td><td>Saving document A must check something or change document B.</td></tr>
+        <tr><td><strong>Client Script</strong></td><td>Runs your JavaScript in the form</td><td>A <code>.js</code> file in your app, wired by <code>doctype_js</code></td><td>The user needs feedback, a button, a popup or a filtered link list.</td></tr>
+        <tr><td><strong>New DocType</strong></td><td>Adds your own table, form and controller</td><td>Your app's module folder</td><td>The data you need is a record in its own right, not a field on someone else's.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 980 330" role="img" aria-label="Decision flowchart. Start with: what do you need to change? If you need to store new data, ask whether it is a record in its own right: yes gives a new DocType, no gives a Custom Field. If you need existing behaviour changed, ask whether the rule must hold for the API too: yes gives a doc_events hook in Python, no gives a Client Script. If you need a field to look or behave differently, use a Property Setter.">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+      </defs>
+      <g class="sv-flow" marker-end="url(#a1)">
+        <line x1="150" y1="60" x2="258" y2="60"/><line x1="150" y1="165" x2="258" y2="165"/><line x1="150" y1="270" x2="258" y2="270"/>
+        <line x1="128" y1="85" x2="128" y2="155"/><line x1="128" y1="190" x2="128" y2="260"/>
+        <line x1="470" y1="40" x2="612" y2="40"/><line x1="470" y1="82" x2="612" y2="82"/>
+        <line x1="470" y1="145" x2="612" y2="145"/><line x1="470" y1="187" x2="612" y2="187"/>
+        <line x1="470" y1="270" x2="612" y2="270"/>
+      </g>
+      <g>
+        <rect x="8" y="40" width="120" height="40" rx="8" class="sv-box sv-acc"/><text x="68" y="65" text-anchor="middle" class="sv-t">Start</text>
+        <rect x="260" y="36" width="210" height="48" rx="8" class="sv-box"/><text x="272" y="56" class="sv-t">Store new data?</text><text x="272" y="72" class="sv-s">nothing in ERPNext holds it</text>
+        <rect x="260" y="141" width="210" height="48" rx="8" class="sv-box"/><text x="272" y="161" class="sv-t">Change behaviour?</text><text x="272" y="177" class="sv-s">a rule, a reaction, a message</text>
+        <rect x="260" y="246" width="210" height="48" rx="8" class="sv-box"/><text x="272" y="266" class="sv-t">Change a field's looks?</text><text x="272" y="282" class="sv-s">hidden · mandatory · options</text>
+        <rect x="614" y="20" width="250" height="40" rx="8" class="sv-box-2"/><text x="626" y="45" class="sv-s">a record of its own → <tspan class="sv-t">New DocType</tspan></text>
+        <rect x="614" y="62" width="250" height="40" rx="8" class="sv-box-2"/><text x="626" y="87" class="sv-s">one more value → <tspan class="sv-t">Custom Field</tspan></text>
+        <rect x="614" y="125" width="250" height="40" rx="8" class="sv-box-2"/><text x="626" y="150" class="sv-s">must hold for API → <tspan class="sv-t">Hook (Python)</tspan></text>
+        <rect x="614" y="167" width="250" height="40" rx="8" class="sv-box-2"/><text x="626" y="192" class="sv-s">user feedback → <tspan class="sv-t">Client Script</tspan></text>
+        <rect x="614" y="250" width="250" height="40" rx="8" class="sv-box-2"/><text x="626" y="275" class="sv-t">Property Setter</text>
+      </g>
+      <g class="sv-l">
+        <text x="490" y="34">yes</text><text x="490" y="100">no</text>
+        <text x="490" y="139">yes</text><text x="490" y="205">no</text>
+      </g>
+    </svg>
+    <figcaption>How each step in this document was decided. The two most common beginner mistakes are putting a rule only in a Client Script (the API then bypasses it) and adding fields by hand in Customize Form (the next site does not have them).</figcaption>
+  </figure>
+
+  <div class="callout">
+    <div class="ic">Watch out</div>
+    <p>A <strong>Client Script is never a rule</strong> — it is a convenience. Anything that must always be true needs a Python hook as well, because the REST API, Data Import and the bench console do not run JavaScript. You will see this pair appear twice in Phase 2: the attachment rule and the approved-tender rule each have a form half and a server half.</p>
+  </div>
+</section>
+
+<section id="map">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 02</div>
+    <h2>A map of the work</h2>
+    <p>Before the steps themselves: how much of each tool the project used, and when the three sessions happened. Use this to know roughly where you are as you read.</p>
+  </div>
+
+  <div class="panel">
+    <h3 style="font-size:16px">What the customization is made of</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 14px">Counts read from the live <code>site1.local</code> database and the app's current source. Notice the shape: far more <em>schema</em> (fields, property setters) than <em>logic</em> (hooks). That is normal and healthy — most of customizing ERPNext is describing data, not writing code.</p>
+    <div class="chart-wrap"><canvas id="chartMakeup" aria-label="Horizontal bar chart of how many of each customization mechanism the project uses" role="img"></canvas></div>
+    <details class="tableview">
+      <summary>Show the numbers as a table</summary>
+      <div class="table-box" style="box-shadow:none;margin-top:10px">
+        <table>
+          <thead><tr><th>Mechanism</th><th style="text-align:right">Count</th><th>Where it lives</th></tr></thead>
+          <tbody>
+            <tr><td>Custom Fields</td><td style="text-align:right">18</td><td>Lead 8 · Opportunity 8 · Project Tender 2</td></tr>
+            <tr><td>Property Setters</td><td style="text-align:right">16</td><td>Lead 14 · Opportunity 2</td></tr>
+            <tr><td><code>doc_events</code> handlers</td><td style="text-align:right">12</td><td>Across 4 DocTypes</td></tr>
+            <tr><td><code>after_migrate</code> steps</td><td style="text-align:right">6</td><td>3 setup + 3 backfill</td></tr>
+            <tr><td>New DocTypes</td><td style="text-align:right">5</td><td>1 normal + 4 child tables</td></tr>
+            <tr><td>Client script files</td><td style="text-align:right">6</td><td>4 shared + 2 on Leads Activity</td></tr>
+            <tr><td>Whitelisted methods</td><td style="text-align:right">1</td><td><code>get_opportunity_tenders</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 980 212" role="img" aria-label="Timeline with two phases. Phase 1 on 6 to 7 October 2026 delivered seventeen steps: the Leads Activity DocType, the Lead and Opportunity layout changes, the tendering automation and the contacts tables. Phase 2 on 10 October 2026 delivered six modifications plus two cross-cutting changes: table ordering and Arabic messages.">
+      <g class="sv-line"><line x1="40" y1="106" x2="940" y2="106"/></g>
+      <g>
+        <circle cx="150" cy="106" r="7" style="fill:var(--s1);stroke:var(--surface);stroke-width:3"/>
+        <circle cx="640" cy="106" r="7" style="fill:var(--s2);stroke:var(--surface);stroke-width:3"/>
+        <rect x="40" y="26" width="420" height="62" rx="9" class="sv-box"/>
+        <text x="56" y="47" class="sv-t">Phase 1 · 6–7 Oct 2026 · steps 1–17</text>
+        <text x="56" y="65" class="sv-s">New Leads Activity DocType · Lead &amp; Opportunity layout ·</text>
+        <text x="56" y="80" class="sv-s">qualification &amp; tendering automation · mirror tables</text>
+        <rect x="520" y="124" width="420" height="62" rx="9" class="sv-box"/>
+        <text x="536" y="145" class="sv-t">Phases 2–3 · 10–11 Oct 2026 · steps 18–26</text>
+        <text x="536" y="163" class="sv-s">Six requested modifications, table ordering and Arabic</text>
+        <text x="536" y="178" class="sv-s">messages, then two follow-ups once they were in use</text>
+        <line x1="150" y1="88" x2="150" y2="100" class="sv-line"/>
+        <line x1="640" y1="112" x2="640" y2="124" class="sv-line"/>
+      </g>
+      <g class="sv-l"><text x="40" y="200">app created</text><text x="880" y="96">today</text></g>
+    </svg>
+    <figcaption>Three working sessions. Phase 1 built the feature; Phase 2 changed the rules around it once the business reviewed how it behaved; Phase 3 adjusted two of those rules again after a day of real use. Everything after Phase 1 is the realistic part of customization work — expect it.</figcaption>
+  </figure>
+</section>
+
+<section id="p1">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 03 · Phase 1</div>
+    <h2>Building the foundation — steps 1 to 17</h2>
+    <p>In the order they were built. Each card answers the same three questions, then draws out the transferable lesson. <span class="phase">6–7 Oct 2026</span></p>
+  </div>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">01</div><div>
+      <h3>"Is Company" hides the person fields</h3>
+      <p>A Lead that is a company has no first name, so those fields disappear and are emptied on save.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A new <strong>Is Company</strong> checkbox. When ticked, Salutation, First/Middle/Last Name, Gender and Job Title vanish from the form, and Organization Name becomes the mandatory one instead. On save the hidden values are cleared and Full Name is set to the company name.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocType <strong>Lead</strong>. One Custom Field (<code>custom_is_company</code>), six <code>depends_on</code> Property Setters, two <code>mandatory_depends_on</code> Property Setters, and a <code>before_validate</code> hook — all in <code>overrides/lead.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Company leads were being saved with a person's name invented to satisfy the mandatory First Name, which polluted reporting. Hiding is not enough on its own: a field hidden <em>after</em> someone typed in it keeps its value, so the values must also be cleared server-side.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Custom Field</span><span class="chip">Property Setter</span><span class="chip">Hook: before_validate</span></div>
+    <div class="lesson"><b>Lesson.</b> <code>depends_on</code> is a tiny JavaScript expression the form evaluates live — <code>eval: !doc.custom_is_company</code>. It controls <em>visibility only</em>. Pair it with a server hook whenever the hidden data must actually go away. And prefer <code>before_validate</code> over <code>validate</code> when your change must happen before ERPNext's own validation reads the field.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">02</div><div>
+      <h3>The Organization section moved above Contact Info</h3>
+      <p>Sales staff fill in the company first, so the form now follows that order.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">The whole Organization block (not just its heading) was moved up the Lead form.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocType <strong>Lead</strong>, one <code>field_order</code> Property Setter generated by <code>apply_field_order()</code> in <code>overrides/lead.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">ERPNext's own fields cannot be moved with <code>insert_after</code> — that only works for fields you added. The only supported way is a <code>field_order</code> Property Setter: the complete list of fieldnames in display order, which is exactly what Customize Form writes when you drag a field.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Property Setter: field_order</span></div>
+    <div class="lesson"><b>Lesson.</b> The code reads the current field order from the live meta, applies its moves, and writes the result back. That way a reordering someone else made in Customize Form survives, instead of being overwritten by a hard-coded list.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">03</div><div>
+      <h3>The Leads Activity DocType</h3>
+      <p>The project's own record for a CRM touchpoint: a call, a meeting, a site visit, a registration, a tender.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A new DocType named <code>CRM-ACT-.YYYY.-.#####</code> with Type, Status, Date, Assigned To, a Link Type / Link pair, and an Attachments child table.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">New folder <code>custom_crm_updates/doctype/leads_activity/</code>, plus the child DocType <code>Leads Activity Attachment</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">An activity is a record in its own right — it has its own status, owner, date and files, and it is created and listed independently. That is the signal that you need a DocType and not a field (or worse, a text area) on the Lead.</p></div>
+    </div>
+    <div class="chips"><span class="chip">New DocType</span><span class="chip">Child DocType</span><span class="chip">Dynamic Link</span></div>
+    <div class="lesson"><b>Lesson.</b> The <strong>Dynamic Link</strong> pattern is worth memorising: a Select field holding a DocType name (<code>link_type</code>) plus a Link field whose options point at that Select (<code>link_name</code>). One record type can then attach to a Lead, a Prospect or an Opportunity without three separate fields.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">04</div><div>
+      <h3>Activities drive the Lead's qualification</h3>
+      <p>Logging activities now moves the Lead through its qualification states by itself.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Creating a <em>Registration</em> activity sets the Lead to <strong>In Process</strong>. Any activity reaching <strong>Done</strong> marks the Lead <strong>Qualified</strong> and records Qualified By and Qualified On.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>LeadsActivity.on_update</code> and <code>set_lead_qualification</code> in <code>leads_activity.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">The status was being updated by hand and drifted from reality. The updates are written with <code>db_set</code>, not a full <code>save()</code>, for two deliberate reasons: the user logging an activity may not have write access to the Lead, and an unrelated Lead validation error (a duplicate email, say) must not block recording a phone call that really happened.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Hook: on_update</span><span class="chip">db_set</span><span class="chip">Timeline comment</span></div>
+    <div class="lesson"><b>Lesson.</b> <code>doc.db_set(...)</code> writes one field and skips validation; <code>doc.save()</code> runs everything. Choose <code>db_set</code> for a small status nudge on a <em>different</em> document, and <code>save()</code> when the other document's own automations must run too. Every automatic change here also writes a timeline comment, so a user can always see why a status moved.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">05</div><div>
+      <h3>Create ▸ Activity (and no more Prospect)</h3>
+      <p>The Lead's Create menu now offers Activity, pre-linked to that Lead.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">"Prospect" removed from the Create menu, "Activity" added; the new activity opens with Link Type and Link already filled in. The Connections tab's <strong>+</strong> does the same.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>public/js/lead.js</code> and the shared <code>public/js/leads_activity_section.js</code>, wired through <code>doctype_js</code> in <code>hooks.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">A pre-linked record is one less chance to link an activity to the wrong Lead. The controller is <em>subclassed</em> (<code>class LeadController extends erpnext.LeadController</code>) rather than hooked with <code>frappe.ui.form.on</code>, because plain handlers run before ERPNext's own <code>refresh</code> — at which point the Create buttons do not exist yet and cannot be removed.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Client Script</span><span class="chip">doctype_js</span><span class="chip">Controller subclass</span></div>
+    <div class="lesson"><b>Lesson.</b> Two ways to script a form: <code>frappe.ui.form.on("Lead", {...})</code> for field reactions, and extending the app's controller class when you must act <em>after</em> the standard buttons are built. Ordering bugs in client scripts are almost always this distinction.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">06</div><div>
+      <h3>Activities shown as a real table <span class="phase" style="vertical-align:middle">the key pattern</span></h3>
+      <p>The Lead's Activities tab lists its activities in a normal ERPNext grid — read-only, and kept in step automatically.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A section at the top of the Activities tab holding a child table of <code>Leads Activity Detail</code> rows: activity, type, date, status, assigned user, attachment count. Read-only, with a <strong>New Activity</strong> button instead of Add Row.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">Three Custom Fields on <strong>Lead</strong>, the child DocType <code>Leads Activity Detail</code>, <code>sync_activity_table()</code> in <code>leads_activity.py</code>, and the shared writer <code>mirror_table.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">A child table has to store its rows inside the parent document — but the real records live in their own DocType. So the rows are a <strong>mirror</strong>: whenever an activity is created, edited, re-linked or deleted, the affected Lead's rows are rebuilt from the activities. The alternative, an HTML field rendering a list, was tried first and dropped: it cannot be filtered, sorted or exported, and users expect the grid's ⚙ column picker.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Custom Field: Table</span><span class="chip">Child DocType</span><span class="chip">mirror_table.py</span><span class="chip">read_only · no_copy</span></div>
+    <div class="lesson"><b>Lesson.</b> This "mirror table" is the most reusable idea in the project, and it is reused three more times (Opportunity activities, Project Tenders, Contacts). The technical reference explains exactly how it writes rows safely, why it compares before writing, and why it touches the parent's <em>modified</em> timestamp.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">07</div><div>
+      <h3>The Opportunity gets its own activities</h3>
+      <p>The same table on the Opportunity — listing only the Opportunity's activities, never the Lead's.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">An <strong>Opportunity Activities</strong> section identical to the Lead's. An Opportunity made from a Lead starts empty; the Lead does not show the Opportunity's activities either.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">The same three Custom Fields, now on <strong>Opportunity</strong> (<code>overrides/opportunity.py</code>), reusing <code>activity_table_fields()</code> and <code>sync_activity_table()</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Pre-sales conversations and deal conversations are different histories and are reported on separately. Keeping them apart was a requirement, not an accident — and it foreshadows the contacts decision in Phase 2.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Reused helper</span><span class="chip">TABLE_DOCTYPES</span></div>
+    <div class="lesson"><b>Lesson.</b> When the second DocType needs the same feature, turn the field definitions into a function that returns them (<code>activity_table_fields(label)</code>) rather than copying the dicts. Adding a third DocType later is then one list entry.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">08</div><div>
+      <h3>Address &amp; Contacts moved into its own tab</h3>
+      <p>The Lead's address and contact blocks left the crowded Details tab.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A new <strong>Address &amp; Contacts</strong> tab holding the address list, City/State/Country and the contact list. The tabs became: Details, Address &amp; Contacts, Activities, Comments, Connections.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">One Tab Break Custom Field plus the <code>field_order</code> Property Setter from step 2; two more Property Setters blank the section's heading and stop it being collapsible.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">A Tab Break claims <em>every field after it</em> until the next tab, so the block had to be moved to just before Activities — otherwise Qualification and Additional Information would have been dragged into the new tab. Inside its own tab the section heading would just repeat the tab name, so it was emptied.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Tab Break</span><span class="chip">field_order</span></div>
+    <div class="lesson"><b>Lesson.</b> Tab and Section Breaks are ordinary fields in the order. Think of layout as one flat list with markers in it, not as nested containers — most layout surprises in Frappe come from forgetting that.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">09</div><div>
+      <h3>A Tendering activity type, and two new Opportunity statuses</h3>
+      <p>New option values on one of our fields and one of ERPNext's.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v"><code>Tendering</code> added to Leads Activity → Type. <code>Tendering</code> and <code>Won</code> added to Opportunity → Status.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">Type: edited directly in <code>leads_activity.json</code> — our own DocType. Status: an <code>options</code> Property Setter on <strong>Opportunity</strong>, built in <code>apply_opportunity_customizations()</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">The new options are read from the original <code>DocField</code> row and our two appended, so re-running never duplicates them and any option a future ERPNext release adds is preserved. Hard-coding the full list would silently delete ERPNext's additions on the next upgrade.</p></div>
+    </div>
+    <div class="chips"><span class="chip">DocType JSON</span><span class="chip">Property Setter: options</span></div>
+    <div class="lesson"><b>Lesson.</b> Your DocType, your JSON. Someone else's DocType, a Property Setter — and build its value from what is already there rather than from a literal.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">10</div><div>
+      <h3>A Tendering activity creates a Project Tender</h3>
+      <p>The first cross-app automation: saving an activity creates a record in another app.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Saving a <em>Tendering</em> activity on an Opportunity creates one <strong>Project Tender</strong>, named after the Opportunity, with its Client resolved to a real Customer, and moves the Opportunity to <strong>Tendering</strong>. One tender per activity — re-saving never creates a second.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>overrides/project_tender.py</code> → <code>create_project_tender_for_activity()</code>, called from <code>LeadsActivity.on_update</code>. Two read-only Custom Fields are added to <strong>Project Tender</strong>: <code>custom_opportunity</code> and <code>custom_leads_activity</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Project Tender belongs to the <code>contracting</code> app, which is left untouched — so the link lives on <em>our</em> two Custom Fields. Those fields are also the idempotence mechanism: before creating, the code asks whether a tender already points at this activity. The tender is inserted with <code>ignore_permissions=True</code> because a Sales User has no role on Project Tender but must still be able to trigger the automation.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Cross-app</span><span class="chip">ignore_permissions</span><span class="chip">Idempotence by link</span></div>
+    <div class="lesson"><b>Lesson.</b> Automations run again — on every re-save, on a background retry, on a bulk edit. Give each one a cheap question it can ask the database to find out whether it already ran. A link field pointing back at the trigger is the simplest such question.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">11</div><div>
+      <h3>The Opportunity's Project Tender tab</h3>
+      <p>A third mirror table, this time of records owned by another app.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A tab between Items and Activities listing the Opportunity's tenders: tender, project name, client, status, total sell price.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">Two Custom Fields on <strong>Opportunity</strong> plus the child DocType <code>Opportunity Project Tender</code>; kept current by <code>sync_opportunity_tenders()</code>, triggered by a <code>doc_events</code> hook on <strong>Project Tender</strong>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Sales needed the tender status without opening the contracting module — and often without permission to. Reading it into a mirror table on the Opportunity sidesteps the permission problem entirely, because child rows belong to the Opportunity the user can already read.</p></div>
+    </div>
+    <div class="chips"><span class="chip">doc_events on another app's DocType</span><span class="chip">Mirror table</span></div>
+    <div class="lesson"><b>Lesson.</b> <code>doc_events</code> can hook a DocType from <em>any</em> installed app, and the hook simply never fires if that app is absent. That is why this whole feature degrades quietly on a site without <code>contracting</code> instead of crashing.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">12</div><div>
+      <h3>A Submitted tender marks its activity Done</h3>
+      <p>The status relationship in the other direction — and the rule that was rewritten in Phase 2.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">When a Project Tender's status becomes <strong>Submitted</strong>, the activity that created it is set to <strong>Done</strong>. <em>Originally the Opportunity was also set to Won here</em> — that half was removed in step 18.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>on_update</code> and <code>mark_activity_done()</code> in <code>overrides/project_tender.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">The guard <code>doc.has_value_changed("status")</code> makes it fire only on the save where the status actually changed, so re-saving a submitted tender does nothing. The activity gets a full <code>save()</code> here — not <code>db_set</code> — precisely so its own <code>on_update</code> runs and the Opportunity's activities table shows "Done" too.</p></div>
+    </div>
+    <div class="chips"><span class="chip">has_value_changed</span><span class="chip">full save vs db_set</span></div>
+    <div class="lesson"><b>Lesson.</b> <code>has_value_changed(field)</code> compares against the version loaded before this save. It is the standard way to answer "did this <em>just</em> happen?" and it is what keeps an idempotent automation from firing on every unrelated save.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">13</div><div>
+      <h3>Registration Done → the Lead becomes a Customer</h3>
+      <p>Reusing ERPNext's own conversion instead of writing one.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A <em>Registration</em> activity reaching Done converts its Lead into a <strong>Customer</strong>, carrying the Lead's Customer Group and Territory. A Lead that already has a Customer is never converted twice.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>convert_lead_to_customer()</code> and <code>insert_customer()</code> in <code>overrides/lead.py</code>, calling ERPNext's <code>_make_customer</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">ERPNext's mapper is the same code behind the Lead's own <em>Create ▸ Customer</em> button: it copies the details, links the Lead's contacts and addresses to the new Customer and marks the Lead <em>Converted</em>. Re-implementing that would have drifted from core on the next upgrade. Only what the mapper leaves out is filled in.</p></div>
+    </div>
+    <div class="chips"><span class="chip">get_mapped_doc</span><span class="chip">Reuse core logic</span></div>
+    <div class="lesson"><b>Lesson.</b> Before writing a conversion, search ERPNext for a <code>@frappe.whitelist()</code> function named <code>make_*</code> — most document-to-document conversions already exist. Call it and adjust the result.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">14</div><div>
+      <h3>Contacts shown as a table</h3>
+      <p>ERPNext's contact list replaced by a grid on both Lead and Opportunity.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Core's <code>contact_html</code> list is hidden and a read-only <strong>Contacts</strong> table (<code>Leads Contact Detail</code> rows) shows contact, full name, email, mobile, designation and the primary flag, with a <strong>New Contact</strong> button.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>overrides/contact.py</code>, two Custom Fields on each of Lead and Opportunity, one <code>hidden</code> Property Setter each, and <code>doc_events</code> on <strong>Contact</strong>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Same reasons as the activities table: filterable, sortable, exportable, familiar. Contacts attach to records through Dynamic Link rows inside the Contact, so this table is a mirror of those links — maintained from both ends, because a contact can change without its Lead being saved.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Property Setter: hidden</span><span class="chip">doc_events on Contact</span><span class="chip">Dynamic Link</span></div>
+    <div class="lesson"><b>Lesson.</b> Hide core's version rather than deleting or disabling it. ERPNext still renders into the hidden field, nothing in its code breaks, and you can revert by removing one Property Setter.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">15</div><div>
+      <h3>Empty tables stay visible</h3>
+      <p>A one-screen fix for a Frappe behaviour that hid the new buttons.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A read-only table with no rows no longer disappears, so its <em>New Activity</em> / <em>New Contact</em> button is always reachable — and the Project Tender tab, which contains nothing else, no longer vanishes.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>show_when_empty()</code> in <code>public/js/leads_activity_section.js</code>, installed from each controller's <code>setup</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Frappe hides any read-only field that has no value. Each field control decides its own visibility in a method called <code>get_status</code>, so that method is wrapped for our tables only: when the original says "None" but the field is not deliberately hidden and the user can read it, the answer becomes "Read" — shown, still read-only.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Control wrapping</span><span class="chip">get_status</span></div>
+    <div class="lesson"><b>Lesson.</b> When a framework behaviour is in your way, find the smallest method that decides it and wrap that one method for your own fields — rather than forcing the field's <code>hidden</code> property on every refresh, which fights the framework on every render.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">16</div><div>
+      <h3>Customer Group and Territory made mandatory on the Lead</h3>
+      <p>The conversion in step 13 needs them, so they are demanded up front — carefully.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A new <strong>Customer Group</strong> field beside Territory; both must be filled before a person can save a Lead, and the Customer created from it inherits both.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">One Custom Field, two <code>mandatory_depends_on</code> Property Setters, and the <code>validate</code> hook <code>validate_customer_fields</code> — <code>overrides/lead.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">The obvious switch, <code>reqd</code>, is enforced on <em>every</em> insert — including the Leads ERPNext creates by itself from the website contact form, from an incoming email, or from an appointment, where there is nobody to ask. Those inserts would start failing. So the form is made mandatory with <code>mandatory_depends_on: "eval:1"</code>, and a server check covers API and Data Import saves while letting ERPNext's own inserts through.</p></div>
+    </div>
+    <div class="chips"><span class="chip">mandatory_depends_on</span><span class="chip">Hook: validate</span></div>
+    <div class="lesson"><b>Lesson.</b> In Frappe v14, <code>mandatory_depends_on</code> is checked by the <em>form only</em>. If a rule must hold everywhere, it needs a server <code>validate</code> too — and think about who else creates this DocType before you make anything <code>reqd</code>.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">17</div><div>
+      <h3>Wiring it all together: hooks.py and the setup functions</h3>
+      <p>How Frappe finds everything above, and how it is re-applied on any site.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v"><code>doctype_js</code> attaches the client scripts; <code>doc_events</code> registers the 12 Python handlers; <code>after_migrate</code> runs three setup functions (which create every Custom Field and Property Setter) and then three backfills (which fill the mirror tables for records that predate them); <code>override_doctype_dashboards</code> adds Leads Activity to the Connections tab.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>hooks.py</code>, plus <code>apply_*_customizations()</code> in each override module.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Every setup function is <strong>idempotent</strong>: <code>create_custom_fields(..., update=True)</code> creates or updates, <code>make_property_setter</code> replaces any existing setter for the same field and property, and the backfills skip records that are already correct. So <code>bench migrate</code> can be run any number of times, on any site, in any order.</p></div>
+    </div>
+    <div class="chips"><span class="chip">hooks.py</span><span class="chip">after_migrate</span><span class="chip">Idempotent setup</span></div>
+    <div class="lesson"><b>Lesson.</b> Think of <code>after_migrate</code> as "make the site match the code". Order matters — fields first, then the backfills that fill them — and every step must be safe to repeat, because it will run on every deployment forever.</div>
+  </article>
+</section>
+
+<section id="p2">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 04 · Phase 2</div>
+    <h2>The six modifications — steps 18 to 24</h2>
+    <p>After the business used Phase 1, six rules were changed or added, plus two cross-cutting changes. <span class="phase">10 Oct 2026</span></p>
+  </div>
+
+  <div class="callout info">
+    <div class="ic">Read first</div>
+    <p>These six are a good study of the <em>second</em> kind of customization work: not "add a feature" but "the rule we agreed was wrong". Notice how often the fix is to <strong>move a decision from the machine to the user</strong> — which is exactly what modifications 1 and 2 do together.</p>
+  </div>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">18</div><div>
+      <h3>Modification 1 · Submitting a tender no longer wins the Opportunity</h3>
+      <p>The automation from step 12 was cut in half.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A Project Tender becoming <strong>Submitted</strong> still sets its activity to <strong>Done</strong>, but the Opportunity is now left exactly as it is. The function that set it to Won was deleted.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>overrides/project_tender.py</code> — <code>mark_opportunity_won()</code> removed; <code>on_update()</code> now calls only <code>mark_activity_done()</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">One Opportunity can have several Project Tenders, and submitting <em>a</em> tender is not winning <em>the deal</em>. The old rule marked the deal won the first time any price went out of the door, which inflated the won pipeline and made the Opportunity's status meaningless.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Removed automation</span></div>
+    <div class="lesson"><b>Lesson.</b> Deleting an automation is a customization too, and it needs the same care: the test that asserted "Opportunity becomes Won" was rewritten to assert the opposite, so the old behaviour cannot come back unnoticed.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">19</div><div>
+      <h3>Modification 2 · Setting an Opportunity to Won asks which tender was approved</h3>
+      <p>The decision removed in step 18 is now put to the user, at the moment they know the answer.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Choosing <strong>Won</strong> on the Opportunity opens a popup listing that Opportunity's Project Tenders — ID, project name, status, total sell price. The chosen one is stored in a new read-only <strong>Approved Project Tender</strong> field, and saving the Opportunity sets that tender to <strong>Won</strong>. The other tenders are untouched. Dismissing the popup puts the status back.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">Popup: <code>public/js/opportunity.js</code>. Server: <code>get_opportunity_tenders()</code> (whitelisted), <code>validate_approved_tender()</code> and <code>apply_approved_tender()</code> in <code>overrides/project_tender.py</code>. New Custom Field <code>custom_approved_project_tender</code> on <strong>Opportunity</strong>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Only a human knows which bid the client accepted. Two design choices are worth copying: the list is fetched from the <em>server</em> rather than read off the form, so it cannot be stale; and the tender is updated when the Opportunity is <strong>saved</strong>, not when the popup closes — writing from a dialog would change the document under the open form and the user's own save would then be rejected as out of date.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Client Script: dialog</span><span class="chip">frappe.whitelist</span><span class="chip">Hook: on_update</span><span class="chip">Custom Field</span></div>
+    <div class="lesson"><b>Lesson.</b> A popup that changes data should normally <em>record the answer on the form</em> and let the ordinary save apply it. You get one transaction, one permission check, one audit trail, and no timestamp conflicts.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">20</div><div>
+      <h3>Modification 3 · A message confirms the new Project Tender</h3>
+      <p>The smallest change in the batch, and the one users noticed most.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Saving a <em>Tendering</em> activity now shows a green message naming the new tender and linking to it.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">A <code>frappe.msgprint</code> at the end of <code>create_project_tender_for_activity()</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">The automation was invisible: the user saved an activity and nothing on screen suggested a tender had appeared in another module, so people created duplicates by hand. The message fires only on actual creation — a re-save returns before reaching it.</p></div>
+    </div>
+    <div class="chips"><span class="chip">frappe.msgprint</span><span class="chip">get_link_to_form</span></div>
+    <div class="lesson"><b>Lesson.</b> Any automation that creates a record the user cannot see should say so, with a link. Use <code>frappe.msgprint</code> from the server — it reaches the user whether they saved from the form, and <code>get_link_to_form</code> builds the clickable link for you.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">21</div><div>
+      <h3>Modification 4 · A Registration activity requires an attachment</h3>
+      <p>One rule, three layers — the clearest example in the project of how a Frappe rule should be built.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">An activity of type <strong>Registration</strong> cannot be saved unless at least one file is attached. The Attachments table shows a red asterisk the moment the Type is set to Registration. A row with no file picked does not count.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">(1) <code>mandatory_depends_on</code> on the <code>attachments</code> field in <code>leads_activity.json</code>; (2) a <code>validate</code> handler in <code>leads_activity.js</code>; (3) <code>LeadsActivity.validate_registration_attachment()</code> in <code>leads_activity.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Registration is the activity that converts the Lead into a Customer (step 13), so the paperwork has to be on file. Each layer does something the others cannot: the asterisk tells the user <em>before</em> they try; the form handler gives a clear message instead of Frappe's generic "Missing Fields" dialog; the server check is the one that actually holds, for the REST API and Data Import too.</p></div>
+    </div>
+    <div class="chips"><span class="chip">mandatory_depends_on</span><span class="chip">Client validate</span><span class="chip">Server validate</span></div>
+    <div class="lesson"><b>Lesson.</b> The form's <code>validate</code> runs <em>before</em> Frappe's own mandatory check, so your message is the one the user reads. And <code>reqd</code> was not an option here because the rule depends on another field's value — that is precisely what <code>mandatory_depends_on</code> is for.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">22</div><div>
+      <h3>Modification 5 · A tender can only be Submitted once it is costed</h3>
+      <p>A rule placed on another app's DocType without touching that app.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Setting a Project Tender to <strong>Submitted</strong> is refused unless all three cost tables — Direct Cost Details, Indirect Cost Details, Overhead / Deduction Details — have at least one row. The message names the empty ones.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>validate_submitted_rows()</code> in <code>overrides/project_tender.py</code>, registered as a <code>validate</code> hook on <strong>Project Tender</strong> in <code>hooks.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Submitting means sending a price to a client, so an un-costed tender must not get there. The check lives in <code>validate</code> rather than in the status change alone, which means emptying a table on an <em>already</em> submitted tender is refused too. The <code>contracting</code> app's own controller was deliberately not edited — the rule is a CRM-side policy and belongs in the CRM app.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Hook: validate</span><span class="chip">Cross-app policy</span></div>
+    <div class="lesson"><b>Lesson.</b> You can add validation to a DocType owned by another app from your own <code>hooks.py</code>. Prefer that to editing the other app whenever the rule is <em>your</em> business policy rather than that app's own integrity.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">23</div><div>
+      <h3>Modification 6 · The Opportunity's contacts are separated from the Lead's</h3>
+      <p>Undoing something ERPNext does on purpose — in three places, because one was not enough. Refined in step 25.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">The Opportunity's Contacts table now lists only contacts linked to the Opportunity — the Lead's contacts, including the ones that were on the Lead when the Opportunity was created, no longer appear there. Existing Opportunities are cleaned up on the next migrate. <em>(At this point the Lead stopped showing the Opportunity's contacts too; step 25 put that half back.)</em></p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">(1) <code>get_contact_rows()</code> in <code>overrides/contact.py</code> no longer reads the party's contacts; (2) the grid's <strong>New Contact</strong> button in <code>leads_activity_section.js</code> now links the new contact to the record you pressed it on; (3) the Opportunity's <strong>Contact Person</strong> link query in <code>opportunity.js</code> now lists the Opportunity's own contacts.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">ERPNext deliberately merges an Opportunity's party contacts into its contact list, so the deal shows the Lead's people. The business wanted the two managed separately. Changing only the table would have been a trap: core leaves <code>frappe.dynamic_link</code> pointing at the <em>party</em>, so the New Contact button would have kept creating contacts on the Lead — invisible in the table the user just pressed the button in.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Mirror query change</span><span class="chip">frappe.dynamic_link</span><span class="chip">Link query filter</span><span class="chip">Backfill cleanup</span></div>
+    <div class="lesson"><b>Lesson.</b> When you change what a list <em>shows</em>, find everything that <em>writes</em> to it as well. A read and a write that disagree is the hardest class of customization bug to spot, because nothing errors — the record simply appears somewhere else.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">24</div><div>
+      <h3>Also in this batch · table ordering and Arabic messages</h3>
+      <p>Two cross-cutting changes that touched every step above.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v"><strong>Ordering:</strong> every CRM mirror table now orders <code>creation asc</code> — oldest at the top, new rows appended at the bottom. The activities table previously sorted by the activity's own Date, and the contacts table previously floated the primary contact to the top. <strong>Messages:</strong> the errors and alerts of these automations are now written in Arabic, with field names, DocType names and status values left in English (<code>Project Tender</code>, <code>Submitted</code>, <code>Registration</code>, <code>Attachments</code>).</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">Ordering: <code>sync_activity_table()</code>, <code>tender_rows()</code>, <code>get_contact_rows()</code>. Messages: the <code>frappe.throw</code> / <code>msgprint</code> calls in <code>project_tender.py</code>, <code>leads_activity.py</code>, and the dialog strings in <code>opportunity.js</code> / <code>leads_activity.js</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Ordering by <em>creation</em> rather than by a user-entered date is what makes "new rows at the bottom" actually true — a back-dated activity would otherwise jump to the top. The Arabic is written as the source string, inside <code>_()</code>, because every user on this bench has their language set to <code>en</code>: Frappe resolves <code>_()</code> against the <em>user's</em> language, so an <code>ar.csv</code> translation file would never have been shown to them.</p></div>
+    </div>
+    <div class="chips"><span class="chip">order_by</span><span class="chip">_() source strings</span></div>
+    <div class="lesson"><b>Lesson.</b> Keep message text inside <code>_()</code> even when you write it in the target language — the string stays translatable, so a future site with Arabic or English users can override it with a translation file instead of a code change.</div>
+  </article>
+</section>
+
+<section id="p3">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 05 · Phase 3</div>
+    <h2>Follow-ups once it was in use — steps 25 and 26</h2>
+    <p>Two changes requested after the six modifications had been used for a day. <span class="phase">11 Oct 2026</span></p>
+  </div>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">25</div><div>
+      <h3>The Lead rolls up its Opportunities' contacts</h3>
+      <p>Step 23 made the two tables strictly separate. Only half of that was wanted.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">The rule is now <strong>asymmetric</strong>. An Opportunity still shows only the contacts linked to it. A Lead shows its own contacts <em>and</em> those of every Opportunity made from it — its own first, then each Opportunity's, oldest Opportunity first. "Linked Via" names the source of each row, and a contact linked to both is listed once.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>overrides/contact.py</code>: a new <code>contact_sources()</code> decides where a table's rows come from; <code>affected_docs()</code> now also returns the Lead behind an Opportunity; a new <code>refresh_party_lead()</code> is hooked to Opportunity <code>on_update</code> and <code>on_trash</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">A deal's contact list should be the people on <em>that</em> deal — but the Lead is the client record, and whoever opens it wants to see everyone involved, including the people added while chasing a particular Opportunity. Strict separation lost that overview.</p></div>
+    </div>
+    <div class="chips"><span class="chip">contact_sources</span><span class="chip">Hook: Opportunity on_update / on_trash</span><span class="chip">Backfill</span></div>
+    <div class="lesson"><b>Lesson.</b> A roll-up needs a trigger the obvious event does not give you. Linking a contact to an Opportunity fires a <em>Contact</em> event, which is how the Lead finds out — but an Opportunity being created, re-pointed at another Lead or deleted changes the roll-up without any contact changing at all. That is what <code>refresh_party_lead</code> covers. Whenever you aggregate across a relationship, ask what happens when the <em>relationship</em> moves, not just its contents.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">26</div><div>
+      <h3>Create ▸ Opportunity on the Customer</h3>
+      <p>A one-screen addition that needed no new server code at all.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">The Customer form's <strong>Create</strong> menu gains an <strong>Opportunity</strong> entry. Clicking it opens a new Opportunity already set to <code>opportunity_from = Customer</code> with this Customer as the party.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">New file <code>public/js/customer.js</code>, wired with one line in <code>doctype_js</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">ERPNext already has the mapping — <code>erpnext.selling.doctype.customer.customer.make_opportunity</code> — and already registers it in <code>frm.make_methods</code>. But <code>make_methods</code> only powers the Connections tab's "+" button, so nothing put it in the Create menu where people look for it. Calling the same mapper means the Opportunity is built exactly as ERPNext builds it everywhere else.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Client Script</span><span class="chip">doctype_js</span><span class="chip">open_mapped_doc</span></div>
+    <div class="lesson"><b>Lesson.</b> Before writing a "create X from Y" button, check for an existing <code>make_*</code> mapper and for <code>frm.make_methods</code> on the source form. Very often the logic exists and only the entry point is missing — which turns a server-side feature into four lines of client script.</div>
+  </article>
+</section>
+
+<section id="journey">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 06</div>
+    <h2>How it all fits: two flowcharts</h2>
+    <p>The first shows the business journey the 24 steps produce. The second shows the mechanism that appears in four of them.</p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 980 410" role="img" aria-label="Flowchart of the CRM journey. A Lead is saved with Customer Group and Territory. A Registration activity with an attachment moves the Lead to In Process; marking it Done qualifies the Lead and converts it to a Customer. An Opportunity is created from the Lead. A Tendering activity on the Opportunity sets it to Tendering, creates a Project Tender and shows a confirmation message. The tender needs all three cost tables filled before it can be Submitted, and submitting it marks its activity Done. Finally the user sets the Opportunity to Won, picks the approved tender in a popup, and that tender becomes Won.">
+      <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <rect x="0" y="22" width="980" height="62" style="fill:var(--surface-2)" rx="6"/>
+      <rect x="0" y="202" width="980" height="62" style="fill:var(--surface-2)" rx="6"/>
+      <g class="sv-l" font-weight="700" letter-spacing="1.1">
+        <rect x="10" y="44" width="9" height="9" rx="2" style="fill:var(--s1)"/><text x="26" y="52">LEAD</text>
+        <rect x="10" y="134" width="9" height="9" rx="2" style="fill:var(--s3)"/><text x="26" y="142">CUSTOMER</text>
+        <rect x="10" y="224" width="9" height="9" rx="2" style="fill:var(--s2)"/><text x="26" y="232">OPPORTUNITY</text>
+        <rect x="10" y="334" width="9" height="9" rx="2" style="fill:var(--baseline)"/><text x="26" y="342">PROJECT TENDER</text>
+      </g>
+      <g class="sv-flow" marker-end="url(#a2)">
+        <line x1="268" y1="53" x2="316" y2="53"/>
+        <line x1="476" y1="53" x2="524" y2="53"/>
+        <line x1="600" y1="78" x2="600" y2="124"/>
+        <line x1="185" y1="78" x2="185" y2="222"/>
+        <line x1="302" y1="233" x2="350" y2="233"/>
+        <line x1="510" y1="258" x2="510" y2="312"/>
+        <line x1="624" y1="340" x2="672" y2="340"/>
+        <line x1="528" y1="233" x2="764" y2="233"/>
+        <line x1="844" y1="262" x2="844" y2="310"/>
+      </g>
+      <g font-size="12">
+        <rect x="130" y="30" width="138" height="46" rx="8" class="sv-box sv-acc"/><text x="142" y="48" class="sv-t">Lead saved</text><text x="142" y="65" class="sv-s">group + territory</text>
+        <rect x="318" y="30" width="158" height="46" rx="8" class="sv-box"/><text x="330" y="48" class="sv-t">Registration</text><text x="330" y="65" class="sv-s">needs an attachment</text>
+        <rect x="526" y="30" width="148" height="46" rx="8" class="sv-box"/><text x="538" y="48" class="sv-t">Activity Done</text><text x="538" y="65" class="sv-s">→ Qualified</text>
+        <rect x="526" y="126" width="148" height="46" rx="8" class="sv-box"/><text x="538" y="144" class="sv-t">Customer</text><text x="538" y="161" class="sv-s">Lead → Converted</text>
+        <rect x="130" y="210" width="172" height="46" rx="8" class="sv-box"/><text x="142" y="228" class="sv-t">Opportunity</text><text x="142" y="245" class="sv-s">status Open</text>
+        <rect x="352" y="210" width="172" height="46" rx="8" class="sv-box"/><text x="364" y="228" class="sv-t">Tendering activity</text><text x="364" y="245" class="sv-s">status → Tendering</text>
+        <rect x="438" y="314" width="186" height="46" rx="8" class="sv-box"/><text x="450" y="332" class="sv-t">Project Tender</text><text x="450" y="349" class="sv-s">Draft · message shown</text>
+        <rect x="674" y="314" width="172" height="46" rx="8" class="sv-box"/><text x="686" y="332" class="sv-t">Submitted</text><text x="686" y="349" class="sv-s">3 cost tables · act. Done</text>
+        <rect x="768" y="210" width="186" height="46" rx="8" class="sv-box sv-acc"/><text x="780" y="228" class="sv-t">Opportunity → Won</text><text x="780" y="245" class="sv-s">popup picks the tender</text>
+        <rect x="674" y="372" width="172" height="30" rx="8" class="sv-box-2"/><text x="686" y="392" class="sv-s">approved tender → Won</text>
+        <line x1="760" y1="372" x2="760" y2="362" class="sv-line"/>
+      </g>
+      <g class="sv-l">
+        <text x="196" y="160">Create ▸ Opportunity</text>
+        <text x="612" y="112">converts</text>
+        <text x="856" y="292">picks it</text>
+        <text x="646" y="226" text-anchor="middle">user sets Won · step 19</text>
+      </g>
+    </svg>
+    <figcaption>Steps 18–23 changed only the right-hand end of this chart: the arrow used to run from <em>Submitted</em> up to <em>Opportunity Won</em> automatically. Now it runs the other way — the user wins the Opportunity, and that decision wins one tender.</figcaption>
+  </figure>
+
+  <figure>
+    <svg viewBox="0 0 980 300" role="img" aria-label="Flowchart of the mirror table mechanism. A Leads Activity is saved. Its on_update hook runs sync_activity_table, which queries all activities linked to the record ordered by creation ascending, builds the rows, and compares them with the rows already stored. If they are identical nothing is written. If they differ, update_child_table writes the rows and the parent's modified timestamp is bumped with notify, which makes any open form reload instead of overwriting the new rows.">
+      <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <g class="sv-flow" marker-end="url(#a3)">
+        <line x1="158" y1="46" x2="206" y2="46"/>
+        <line x1="396" y1="46" x2="444" y2="46"/>
+        <line x1="520" y1="70" x2="520" y2="110"/>
+        <line x1="520" y1="158" x2="520" y2="198"/>
+        <line x1="628" y1="134" x2="770" y2="134"/>
+        <line x1="628" y1="222" x2="770" y2="222"/>
+        <line x1="856" y1="248" x2="856" y2="272"/>
+      </g>
+      <g>
+        <rect x="14" y="24" width="144" height="44" rx="8" class="sv-box sv-acc"/><text x="26" y="42" class="sv-t">Activity saved</text><text x="26" y="59" class="sv-s">or deleted / re-linked</text>
+        <rect x="208" y="24" width="188" height="44" rx="8" class="sv-box"/><text x="220" y="42" class="sv-t">on_update hook</text><text x="220" y="59" class="sv-s">sync_activity_table()</text>
+        <rect x="446" y="24" width="148" height="44" rx="8" class="sv-box"/><text x="458" y="42" class="sv-t">Query source</text><text x="458" y="59" class="sv-s">order creation asc</text>
+        <rect x="446" y="112" width="148" height="44" rx="8" class="sv-box"/><text x="458" y="130" class="sv-t">rows_differ?</text><text x="458" y="147" class="sv-s">compare as strings</text>
+        <rect x="446" y="200" width="182" height="44" rx="8" class="sv-box"/><text x="458" y="218" class="sv-t">update_child_table</text><text x="458" y="235" class="sv-s">writes rows only</text>
+        <rect x="772" y="112" width="190" height="44" rx="8" class="sv-box-2"/><text x="784" y="130" class="sv-t">No write at all</text><text x="784" y="147" class="sv-s">identical → stop</text>
+        <rect x="772" y="200" width="190" height="48" rx="8" class="sv-box-2"/><text x="784" y="220" class="sv-t">db_set("modified")</text><text x="784" y="237" class="sv-s">notify=True</text>
+        <rect x="772" y="274" width="190" height="24" rx="6" class="sv-box"/><text x="784" y="291" class="sv-s">stale open form reloads</text>
+      </g>
+      <g class="sv-l"><text x="690" y="128">same</text><text x="690" y="216">changed</text></g>
+    </svg>
+    <figcaption>The same five boxes run for all four mirror tables. The two right-hand boxes are the parts that are easy to leave out and expensive to miss: <em>compare before writing</em> keeps the document's history clean, and <em>bump modified</em> stops a form someone left open from saving the old rows back over the new ones.</figcaption>
+  </figure>
+</section>
+
+<section id="deploy">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 07</div>
+    <h2>Deploying and verifying</h2>
+    <p>What to run, in what order, and how to prove the result.</p>
+  </div>
+
+  <div class="panel">
+    <h3 style="font-size:16px">The four commands</h3>
+<pre><code>bench --site &lt;site&gt; migrate            # creates/updates every Custom Field and Property Setter, then backfills
+bench build --app custom_crm_updates   # bundles the client scripts in public/js
+bench --site &lt;site&gt; clear-cache        # a DocType's own .js and its meta are cached per site
+bench restart                          # Python changes need the workers restarted</code></pre>
+    <ul class="ticks">
+      <li><strong>Per site.</strong> Each site has its own database, so <code>migrate</code> and <code>clear-cache</code> must be run for each one (<code>site1.local</code> and <code>friendmix.local</code> here).</li>
+      <li><strong>Order matters.</strong> <code>migrate</code> before <code>build</code> is not required, but <code>clear-cache</code> must come after both, or the browser keeps the old form script.</li>
+      <li><strong>Safe to repeat.</strong> Every <code>after_migrate</code> step is idempotent, so re-running <code>migrate</code> never duplicates a field or a setter.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3 style="font-size:16px">Proving it works</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">The app ships <strong>90 automated tests</strong> across two files. They create their own Leads, Opportunities, activities and tenders and roll everything back afterwards.</p>
+<pre><code>bench --site &lt;test-site&gt; run-tests --app custom_crm_updates</code></pre>
+    <div class="callout" style="margin-top:14px">
+      <div class="ic">Honest note</div>
+      <p>89 of the 90 pass. One test, <code>test_mandatory_when_saved_by_a_user</code>, fails on this bench and <strong>failed before any of this phase's work</strong> — ERPNext's test setup writes user defaults for Customer Group and Territory, and Frappe fills empty fields from them, so the mandatory error never fires inside the test runner. The rule itself works outside the runner. Run tests on a dedicated test site: on a live site, ERPNext's sample records are saved permanently.</p>
+    </div>
+  </div>
+</section>
+
+<section id="yourself">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 08</div>
+    <h2>Doing this yourself</h2>
+    <p>The seven habits this project would hand to someone starting their first ERPNext customization.</p>
+  </div>
+  <div class="grid-2">
+    <div class="panel">
+      <h3 style="font-size:16px">Habits worth copying</h3>
+      <ol class="steps-list">
+        <li><strong>Make a separate app.</strong> <code>bench new-app</code> once, and never edit ERPNext.</li>
+        <li><strong>Create fields in code, not by clicking</strong> — then every site is one <code>migrate</code> away from identical.</li>
+        <li><strong>Make every setup function idempotent</strong>, because it runs on every deployment.</li>
+        <li><strong>Put rules on the server, convenience on the client</strong> — and when the rule matters, do both.</li>
+        <li><strong>Ask "did this just happen?"</strong> with <code>has_value_changed</code>, and "did I already do this?" with a link back to the trigger.</li>
+        <li><strong>Say so when you create something invisible</strong> — <code>msgprint</code> plus a timeline comment.</li>
+        <li><strong>Write the test that pins the rule down</strong>, especially when you remove a rule.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3 style="font-size:16px">Mistakes this project hit (so you can skip them)</h3>
+      <ul class="ticks">
+        <li>Hiding a field and forgetting to clear it — step 1.</li>
+        <li>Expecting <code>insert_after</code> to move a core field — step 2.</li>
+        <li>Using <code>reqd</code> where ERPNext also creates the record itself — step 16.</li>
+        <li>Hooking a form with <code>frappe.ui.form.on</code> when the code must run after core's buttons — step 5.</li>
+        <li>Changing what a table shows without changing what writes to it — step 23.</li>
+        <li>Aggregating across a link without handling the link itself moving — step 25.</li>
+        <li>Writing a mapper that ERPNext already ships — step 26.</li>
+        <li>Letting an automation decide something only a human knows — steps 18 and 19.</li>
+        <li>Writing from a dialog straight to the database while the form is open — step 19.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout good">
+    <div class="ic">Next</div>
+    <p>Read the companion file, <code>docs/crm-customizations-technical-reference.html</code>, for the code of every step, the exact paths, and the deep explanation of the mirror-table mechanism, its concurrency and multi-site behaviour, and the risks to watch for when you reuse it.</p>
+  </div>
+</section>
+
+<footer>CRM Customizations · Guided Walkthrough · <code>apps/custom_crm_updates</code> · Frappe/ERPNext v14 · charts by Chart.js (CDN), everything else embedded in this file</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  // ---- theme toggle: data-theme wins over the OS setting, both ways ----
+  var root = document.documentElement;
+  document.getElementById("themeToggle").addEventListener("click", function () {
+    var dark = getComputedStyle(root).getPropertyValue("--plane").trim() === "#0d0d0d";
+    root.setAttribute("data-theme", dark ? "light" : "dark");
+    render();
+  });
+
+  // ---- chart ----
+  var DATA = [
+    ["Custom Fields", 18], ["Property Setters", 16], ["doc_events handlers", 12],
+    ["after_migrate steps", 6], ["Client script files", 6], ["New DocTypes", 5],
+    ["Whitelisted methods", 1]
+  ];
+  var chart = null;
+
+  function token(name) {
+    return getComputedStyle(root).getPropertyValue(name).trim();
+  }
+
+  // Direct value labels at the data end — the relief rule for a fill that
+  // sits under 3:1 against the surface, and simply easier to read.
+  var valueLabels = {
+    id: "valueLabels",
+    afterDatasetsDraw: function (c) {
+      var ctx = c.ctx, meta = c.getDatasetMeta(0);
+      ctx.save();
+      ctx.fillStyle = token("--ink-2");
+      ctx.font = '600 12px system-ui, -apple-system, "Segoe UI", sans-serif';
+      ctx.textBaseline = "middle";
+      meta.data.forEach(function (bar, i) {
+        ctx.fillText(String(c.data.datasets[0].data[i]), bar.x + 8, bar.y);
+      });
+      ctx.restore();
+    }
+  };
+
+  function render() {
+    var el = document.getElementById("chartMakeup");
+    if (!el || typeof Chart === "undefined") return;
+    if (chart) chart.destroy();
+    chart = new Chart(el, {
+      type: "bar",
+      plugins: [valueLabels],
+      data: {
+        labels: DATA.map(function (d) { return d[0]; }),
+        datasets: [{
+          label: "Count",
+          data: DATA.map(function (d) { return d[1]; }),
+          backgroundColor: token("--s1"),
+          borderRadius: { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 },
+          borderSkipped: false,
+          barPercentage: 0.62,
+          categoryPercentage: 0.82
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { right: 34 } },
+        plugins: {
+          legend: { display: false },          // one series — the heading names it
+          tooltip: {
+            backgroundColor: token("--surface"),
+            titleColor: token("--ink"),
+            bodyColor: token("--ink-2"),
+            borderColor: token("--line"),
+            borderWidth: 1,
+            displayColors: false,
+            padding: 10
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            border: { color: token("--baseline") },
+            grid: { color: token("--grid"), drawTicks: false },
+            ticks: { color: token("--muted"), font: { size: 11 }, precision: 0 }
+          },
+          y: {
+            border: { color: token("--baseline") },
+            grid: { display: false },
+            ticks: { color: token("--ink-2"), font: { size: 12 } }
+          }
+        }
+      }
+    });
+  }
+
+  if (typeof Chart === "undefined") {
+    // Offline or CDN blocked: the table view is the chart.
+    document.querySelectorAll(".chart-wrap").forEach(function (w) { w.style.display = "none"; });
+    document.querySelectorAll("details.tableview").forEach(function (d) { d.open = true; });
+  } else {
+    render();
+  }
+})();
+</script>
+</body>
+</html>

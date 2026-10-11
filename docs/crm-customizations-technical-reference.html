@@ -1,0 +1,1317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRM Customizations — Technical Reference</title>
+<meta name="description" content="Technical reference for the ERPNext CRM customizations in custom_crm_updates: code, paths, hooks, mechanisms, concurrency, security and risks.">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ---------- tokens (light) ---------- */
+:root {
+  color-scheme: light;
+  --plane:#f9f9f7; --surface:#fcfcfb; --surface-2:#f2f1ed;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --line:rgba(11,11,11,.10); --grid:#e1e0d9; --baseline:#c3c2b7;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --code-bg:#f4f3ef; --shadow:0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.04);
+  --radius:12px;
+}
+/* ---------- tokens (dark) — selected steps, not an auto flip ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232321;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --line:rgba(255,255,255,.10); --grid:#2c2c2a; --baseline:#383835;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --code-bg:#121211; --shadow:none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface:#1a1a19; --surface-2:#232321;
+  --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+  --line:rgba(255,255,255,.10); --grid:#2c2c2a; --baseline:#383835;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --code-bg:#121211; --shadow:none;
+}
+/* ---------- base ---------- */
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{
+  margin:0; background:var(--plane); color:var(--ink);
+  font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.page{display:grid; grid-template-columns:238px minmax(0,1fr); gap:28px; max-width:1240px; margin:0 auto; padding:24px 16px 72px}
+main{min-width:0}
+h1,h2,h3,h4{line-height:1.25; margin:0}
+a{color:var(--s1)}
+code,kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.875em}
+code{background:var(--code-bg); border:1px solid var(--line); border-radius:5px; padding:.12em .35em}
+pre{margin:14px 0 0; background:var(--code-bg); border:1px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto}
+pre code{background:none;border:0;padding:0;font-size:13px;line-height:1.6}
+/* ---------- rail ---------- */
+.rail{position:sticky; top:16px; align-self:start; max-height:calc(100vh - 32px); overflow:auto; font-size:13.5px}
+.rail-title{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:16px 0 8px}
+.rail a{display:flex; gap:9px; padding:5px 8px; border-radius:7px; color:var(--ink-2); text-decoration:none}
+.rail a:hover{background:var(--surface-2); color:var(--ink)}
+.rail a span{color:var(--muted); font-variant-numeric:tabular-nums; min-width:1.6em}
+/* ---------- blocks ---------- */
+.titleblock{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:26px 28px; margin-bottom:22px}
+.eyebrow{font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--s1); font-weight:700}
+.titleblock h1{font-size:30px; margin:8px 0 10px; letter-spacing:-.02em}
+.lede{color:var(--ink-2); max-width:70ch; margin:0}
+.meta{display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin-top:18px; padding-top:16px; border-top:1px solid var(--line); font-size:13.5px}
+.meta div:nth-child(odd){color:var(--muted)}
+section{margin:34px 0 0}
+.sheet-head{margin-bottom:16px}
+.sheet-no{font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700}
+.sheet-head h2{font-size:23px; margin:6px 0 8px; letter-spacing:-.01em}
+.sheet-head p{color:var(--ink-2); margin:0; max-width:76ch}
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; margin-top:16px}
+.grid-2{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; margin-top:16px}
+/* ---------- step cards ---------- */
+.step{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 22px; margin-top:16px}
+.step-head{display:flex; gap:14px; align-items:flex-start}
+.step-no{flex:0 0 auto; width:34px; height:34px; border-radius:9px; background:var(--s1); color:#fff; font-weight:700; font-size:14px; display:grid; place-items:center; font-variant-numeric:tabular-nums}
+.step-head h3{font-size:17.5px}
+.step-head p{color:var(--ink-2); margin:5px 0 0; font-size:14.5px}
+.qa{margin-top:14px; display:grid; gap:10px}
+.qa-row{display:grid; grid-template-columns:86px minmax(0,1fr); gap:12px; align-items:baseline}
+.qa-k{font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; color:var(--muted); padding-top:3px}
+.qa-v{margin:0; color:var(--ink-2); font-size:14.5px}
+.qa-v strong{color:var(--ink)}
+.lesson{margin-top:14px; padding:12px 14px; background:var(--surface-2); border-left:3px solid var(--s3); border-radius:0 8px 8px 0; font-size:14px; color:var(--ink-2)}
+.lesson b{color:var(--ink)}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px}
+.chip{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11.5px; background:var(--surface-2); border:1px solid var(--line); border-radius:999px; padding:3px 10px; color:var(--ink-2)}
+/* ---------- callouts ---------- */
+.callout{display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:start; background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--warn); border-radius:0 var(--radius) var(--radius) 0; padding:14px 18px; margin-top:16px}
+.callout.info{border-left-color:var(--s1)} .callout.good{border-left-color:var(--good)}
+.callout .ic{font-weight:700; color:var(--muted); font-size:12px; letter-spacing:.08em; text-transform:uppercase; padding-top:2px}
+.callout p{margin:0; font-size:14.5px; color:var(--ink-2)}
+.callout strong{color:var(--ink)}
+/* ---------- tables ---------- */
+.table-box{overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); margin-top:16px}
+table{border-collapse:collapse; width:100%; font-size:14px}
+th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top}
+thead th{background:var(--surface-2); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+/* ---------- figures / svg ---------- */
+figure{margin:16px 0 0; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px}
+figure svg{display:block; width:100%; height:auto; color:var(--ink-2)}
+figcaption{margin-top:12px; padding-top:12px; border-top:1px solid var(--line); font-size:13.5px; color:var(--muted)}
+.sv-box{fill:var(--surface); stroke:var(--baseline)}
+.sv-box-2{fill:var(--surface-2); stroke:var(--baseline)}
+.sv-acc{stroke:var(--s1); stroke-width:1.5}
+.sv-t{fill:var(--ink); font:700 12.5px system-ui,sans-serif}
+.sv-s{fill:var(--ink-2); font:11.5px system-ui,sans-serif}
+.sv-l{fill:var(--muted); font:11px system-ui,sans-serif}
+.sv-line{stroke:var(--baseline); stroke-width:1.6; fill:none}
+.sv-flow{stroke:var(--s1); stroke-width:1.8; fill:none}
+/* ---------- charts ---------- */
+.chart-wrap{position:relative; height:300px; margin-top:6px}
+details.tableview{margin-top:14px; font-size:14px}
+details.tableview summary{cursor:pointer; color:var(--s1); font-size:13.5px}
+details.tableview table{margin-top:10px}
+/* ---------- misc ---------- */
+.toggle{position:fixed; right:14px; bottom:14px; z-index:9; background:var(--surface); color:var(--ink-2); border:1px solid var(--line); border-radius:999px; padding:9px 15px; font:600 13px system-ui,sans-serif; cursor:pointer; box-shadow:var(--shadow)}
+footer{margin-top:44px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:13px}
+ul.ticks{margin:10px 0 0; padding:0; list-style:none}
+ul.ticks li{position:relative; padding-left:22px; margin-bottom:7px; color:var(--ink-2); font-size:14.5px}
+ul.ticks li::before{content:"✓"; position:absolute; left:2px; color:var(--s3); font-weight:700}
+ol.steps-list{margin:10px 0 0; padding-left:22px; color:var(--ink-2); font-size:14.5px}
+ol.steps-list li{margin-bottom:7px}
+.phase{display:inline-block; font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:3px 9px; border-radius:999px; background:var(--surface-2); color:var(--ink-2); border:1px solid var(--line)}
+@media (max-width:900px){
+  .page{grid-template-columns:minmax(0,1fr); gap:0}
+  .rail{display:none}
+  .qa-row{grid-template-columns:minmax(0,1fr); gap:2px}
+}
+</style>
+<style>
+/* reference-only additions */
+.sig{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;color:var(--ink);background:var(--code-bg);border:1px solid var(--line);border-radius:7px;padding:7px 11px;display:inline-block;margin:0 0 4px}
+.pathbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:var(--muted)}
+.pathbar b{color:var(--ink-2);font-weight:600}
+.tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2)}
+.tag.py{color:var(--s1)} .tag.js{color:var(--s2)} .tag.cfg{color:var(--s3)} .tag.risk{color:var(--crit)}
+.risk-item{border-left:3px solid var(--crit);background:var(--surface);border:1px solid var(--line);border-radius:0 10px 10px 0;padding:14px 18px;margin-top:12px}
+.risk-item h4{font-size:15px;margin:0 0 6px}
+.risk-item p{margin:0;color:var(--ink-2);font-size:14.5px}
+.risk-item p + p{margin-top:7px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;margin-top:12px}
+.kv div:nth-child(odd){color:var(--muted);white-space:nowrap}
+.kv div:nth-child(even){color:var(--ink-2)}
+h3.block{font-size:17px;margin:26px 0 0;padding-top:18px;border-top:1px solid var(--line)}
+h3.block:first-child{margin-top:0;padding-top:0;border-top:0}
+pre.sm code{font-size:12.5px}
+.badge-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+small.note{display:block;color:var(--muted);font-size:12.5px;margin-top:8px}
+</style>
+</head>
+<body>
+<button class="toggle" id="themeToggle" type="button">Dark / light</button>
+<div class="page">
+<nav class="rail" aria-label="Contents">
+  <div class="rail-title">Reference</div>
+  <a href="#inventory"><span>01</span>Inventory</a>
+  <a href="#setup"><span>02</span>The setup layer</a>
+  <div class="rail-title">Mechanisms</div>
+  <a href="#mirror"><span>03</span>Mirror tables</a>
+  <a href="#midsave"><span>04</span>Writing mid-save</a>
+  <a href="#multisite"><span>05</span>Multi-site &amp; concurrency</a>
+  <a href="#security"><span>06</span>Permissions &amp; security</a>
+  <div class="rail-title">Per step</div>
+  <a href="#steps"><span>07</span>Step index &amp; code</a>
+  <div class="rail-title">Operations</div>
+  <a href="#risks"><span>08</span>Risks &amp; pitfalls</a>
+  <a href="#tests"><span>09</span>Tests</a>
+  <a href="#assumptions"><span>10</span>Assumptions</a>
+</nav>
+<main>
+
+<header class="titleblock">
+  <div class="eyebrow">Technical reference · for study and review</div>
+  <h1>CRM Customizations: Technical Reference</h1>
+  <p class="lede">The code, paths and configuration behind every customization in <code>apps/custom_crm_updates</code>, plus the mechanisms in depth: how a child table is populated safely without a full save, what happens when the document being written to is the one currently saving, how any of this behaves across the bench's two sites, and which concurrency and permission decisions were deliberate.</p>
+  <div class="meta">
+    <div>App</div><div><code>apps/custom_crm_updates</code> · module <code>Custom CRM Updates</code></div>
+    <div>Platform</div><div>Frappe v14 · ERPNext v14 · MariaDB · Redis · RQ workers</div>
+    <div>Server code</div><div>1,466 lines across 7 Python files · 327 lines of JavaScript · 1,080 lines of tests</div>
+    <div>Sites</div><div><code>site1.local</code> (current) · <code>friendmix.local</code></div>
+    <div>Companion</div><div><code>docs/crm-customizations-walkthrough.html</code> — the same work, taught step by step</div>
+  </div>
+</header>
+
+<section id="inventory">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 01</div>
+    <h2>Inventory</h2>
+    <p>Everything the app adds, read from the live <code>site1.local</code> database and the current source tree. These tables are the ground truth; the narrative sections reference them.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">File tree</h3>
+<pre class="sm"><code>apps/custom_crm_updates/custom_crm_updates/
+├── hooks.py                                    249  wiring: doc_events, after_migrate, doctype_js, dashboards
+├── mirror_table.py                              33  shared writer for every read-only table
+├── overrides/
+│   ├── lead.py                                 268  Lead fields/layout, Is Company, mandatory, Lead → Customer
+│   ├── opportunity.py                           98  Opportunity fields, statuses, Project Tender tab
+│   ├── project_tender.py                       354  Tendering → tender, Submitted → activity Done, approved tender
+│   └── contact.py                              239  Contacts tables; the Lead rolls up its Opportunities'
+├── custom_crm_updates/doctype/
+│   ├── leads_activity/                         220  the DocType: controller, JSON, form script, list script
+│   ├── leads_activity_attachment/                -  child: Attach + Description
+│   ├── leads_activity_detail/                    -  child: mirror row for the activities table
+│   ├── leads_contact_detail/                     -  child: mirror row for the contacts table
+│   └── opportunity_project_tender/               -  child: mirror row for the tenders table
+├── public/js/
+│   ├── customer.js                              24  Create ▸ Opportunity, via ERPNext's own mapper
+│   ├── lead.js                                  27  Lead controller subclass
+│   ├── opportunity.js                          141  Opportunity controller, Won popup, contact_person query
+│   └── leads_activity_section.js                77  shared buttons, show_when_empty, New Contact linking
+└── tests/test_crm_automation.py                632  50 tests (tendering, approved tender, contacts, conversion)</code></pre>
+    <small class="note">Line counts from <code>wc -l</code> on the current working tree. <code>leads_activity/</code> is the controller only; its JSON, form script (40) and list script (18) are counted separately in the JavaScript total.</small>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Server code by file</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 10px"><code>project_tender.py</code> is the largest because it owns both directions of the Opportunity ↔ Project Tender relationship plus the mirror table for it. <code>mirror_table.py</code> is the smallest and the most reused — 33 lines behind four tables.</p>
+    <div class="chart-wrap" style="height:280px"><canvas id="chartLoc" aria-label="Horizontal bar chart of lines of code per server file" role="img"></canvas></div>
+    <details class="tableview">
+      <summary>Show the numbers as a table</summary>
+      <div class="table-box" style="box-shadow:none;margin-top:10px">
+        <table>
+          <thead><tr><th>File</th><th style="text-align:right">Lines</th><th>Responsibility</th></tr></thead>
+          <tbody>
+            <tr><td><code>overrides/project_tender.py</code></td><td style="text-align:right">354</td><td>Tendering automation, Submitted rule, approved tender, tender mirror</td></tr>
+            <tr><td><code>overrides/lead.py</code></td><td style="text-align:right">268</td><td>Lead layout, Is Company, mandatory fields, Lead → Customer</td></tr>
+            <tr><td><code>hooks.py</code></td><td style="text-align:right">254</td><td>Wiring (mostly the generated comment template)</td></tr>
+            <tr><td><code>overrides/contact.py</code></td><td style="text-align:right">239</td><td>Contacts mirror; the Lead rolls up its Opportunities'</td></tr>
+            <tr><td><code>leads_activity/leads_activity.py</code></td><td style="text-align:right">220</td><td>DocType controller, qualification, activity mirror</td></tr>
+            <tr><td><code>overrides/opportunity.py</code></td><td style="text-align:right">98</td><td>Opportunity fields, status options, hidden fields</td></tr>
+            <tr><td><code>mirror_table.py</code></td><td style="text-align:right">33</td><td>Shared safe writer for all mirror tables</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <h3 class="block" style="margin-left:2px">DocTypes created (5)</h3>
+  <div class="table-box">
+    <table>
+      <thead><tr><th>DocType</th><th>Kind</th><th>Naming</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>Leads Activity</code></td><td>Normal</td><td><code>CRM-ACT-.YYYY.-.#####</code></td><td>A CRM touchpoint against a Lead, Prospect or Opportunity (Dynamic Link).</td></tr>
+        <tr><td><code>Leads Activity Attachment</code></td><td>Child</td><td>—</td><td>Attach + Description. <code>attachment</code> is <code>reqd</code> per row.</td></tr>
+        <tr><td><code>Leads Activity Detail</code></td><td>Child</td><td>—</td><td>Mirror row: activity, type, date, status, assigned_to, attachment count.</td></tr>
+        <tr><td><code>Leads Contact Detail</code></td><td>Child</td><td>—</td><td>Mirror row: contact, full_name, email, mobile, phone, designation, primary, linked_via.</td></tr>
+        <tr><td><code>Opportunity Project Tender</code></td><td>Child</td><td>—</td><td>Mirror row: tender, project_name, client, status, total_sell_price, activity, creation_date.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <small class="note">All five are owned by this app, so their schema lives in versioned JSON files and travels with <code>bench migrate</code>. Every mirror child DocType carries <code>read_only</code> on each field; the parent's Table field carries <code>read_only: 1</code> and <code>no_copy: 1</code>.</small>
+
+  <h3 class="block" style="margin-left:2px">Custom Fields (18)</h3>
+  <div class="table-box">
+    <table>
+      <thead><tr><th>DocType</th><th>Fieldname</th><th>Type</th><th>Label</th><th><code>insert_after</code></th></tr></thead>
+      <tbody>
+        <tr><td>Lead</td><td><code>custom_is_company</code></td><td>Check</td><td>Is Company</td><td><code>naming_series</code></td></tr>
+        <tr><td>Lead</td><td><code>custom_customer_group</code></td><td>Link → Customer Group</td><td>Customer Group</td><td><code>territory</code></td></tr>
+        <tr><td>Lead</td><td><code>custom_address_contacts_tab</code></td><td>Tab Break</td><td>Address &amp; Contacts</td><td><code>blog_subscriber</code></td></tr>
+        <tr><td>Lead</td><td><code>custom_contacts_section</code></td><td>Section Break</td><td>Contacts</td><td><code>contact_html</code></td></tr>
+        <tr><td>Lead</td><td><code>custom_contacts</code></td><td>Table → Leads Contact Detail</td><td>—</td><td><code>custom_contacts_section</code></td></tr>
+        <tr><td>Lead</td><td><code>custom_leads_activities_section</code></td><td>Section Break</td><td>Leads Activities</td><td><code>activities_tab</code></td></tr>
+        <tr><td>Lead</td><td><code>custom_leads_activities</code></td><td>Table → Leads Activity Detail</td><td>—</td><td><code>custom_leads_activities_section</code></td></tr>
+        <tr><td>Lead</td><td><code>custom_open_activities_section</code></td><td>Section Break</td><td>—</td><td><code>custom_leads_activities</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_contacts_section</code></td><td>Section Break</td><td>Contacts</td><td><code>contact_display</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_contacts</code></td><td>Table → Leads Contact Detail</td><td>—</td><td><code>custom_contacts_section</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_project_tender_tab</code></td><td>Tab Break</td><td>Project Tender</td><td><code>total</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_project_tenders</code></td><td>Table → Opportunity Project Tender</td><td>Project Tenders</td><td><code>custom_project_tender_tab</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_approved_project_tender</code></td><td>Link → Project Tender</td><td>Approved Project Tender</td><td><code>custom_project_tenders</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_leads_activities_section</code></td><td>Section Break</td><td>Opportunity Activities</td><td><code>activities_tab</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_leads_activities</code></td><td>Table → Leads Activity Detail</td><td>—</td><td><code>custom_leads_activities_section</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_open_activities_section</code></td><td>Section Break</td><td>—</td><td><code>custom_leads_activities</code></td></tr>
+        <tr><td>Project Tender</td><td><code>custom_opportunity</code></td><td>Link → Opportunity</td><td>Opportunity</td><td><code>client</code></td></tr>
+        <tr><td>Project Tender</td><td><code>custom_leads_activity</code></td><td>Link → Leads Activity</td><td>Leads Activity</td><td><code>custom_opportunity</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <small class="note">Defined as dicts in <code>CUSTOM_FIELDS</code> in <code>overrides/{lead,opportunity,project_tender}.py</code> and created by <code>create_custom_fields(..., update=True)</code>. The three on Project Tender are skipped entirely if the <code>contracting</code> app is not installed. <code>custom_opportunity</code> also carries <code>in_standard_filter</code> and <code>search_index</code>; every mirror Table field and both Project Tender links carry <code>no_copy: 1</code> so Duplicate does not clone them.</small>
+
+  <h3 class="block" style="margin-left:2px">Property Setters (16)</h3>
+  <div class="table-box">
+    <table>
+      <thead><tr><th>DocType</th><th>Field</th><th>Property</th><th>Value</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Lead</td><td>—</td><td><code>field_order</code></td><td>full fieldname list (JSON)</td><td>Organization up, Address &amp; Contacts into its tab, Contacts last</td></tr>
+        <tr><td>Lead</td><td><code>salutation</code>, <code>first_name</code>, <code>middle_name</code>, <code>last_name</code>, <code>gender</code>, <code>job_title</code></td><td><code>depends_on</code></td><td><code>eval: !doc.custom_is_company</code></td><td>Hide the person fields for a company Lead (6 setters)</td></tr>
+        <tr><td>Lead</td><td><code>first_name</code></td><td><code>mandatory_depends_on</code></td><td><code>eval: !doc.custom_is_company &amp;&amp; !(doc.company_name)</code></td><td>Do not demand a hidden field</td></tr>
+        <tr><td>Lead</td><td><code>company_name</code></td><td><code>mandatory_depends_on</code></td><td><code>eval: doc.custom_is_company || !(doc.first_name)</code></td><td>A company Lead requires Organization Name instead</td></tr>
+        <tr><td>Lead</td><td><code>custom_customer_group</code>, <code>territory</code></td><td><code>mandatory_depends_on</code></td><td><code>eval:1</code></td><td>Always mandatory on the form (2 setters)</td></tr>
+        <tr><td>Lead</td><td><code>address_section</code></td><td><code>label</code> / <code>collapsible</code></td><td><code>""</code> / <code>0</code></td><td>In its own tab the heading is redundant (2 setters)</td></tr>
+        <tr><td>Lead</td><td><code>contact_html</code></td><td><code>hidden</code></td><td><code>1</code></td><td>Replaced by the Contacts table</td></tr>
+        <tr><td>Opportunity</td><td><code>status</code></td><td><code>options</code></td><td>core list + <code>Tendering</code>, <code>Won</code></td><td>Built from the original <code>DocField</code> row, never a literal</td></tr>
+        <tr><td>Opportunity</td><td><code>contact_html</code></td><td><code>hidden</code></td><td><code>1</code></td><td>Replaced by the Contacts table</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <small class="note">A Property Setter overrides one property of one field. Creating a new one for the same doctype/field/property <em>replaces</em> the existing row, which is what makes <code>apply_*_customizations()</code> safe to re-run. All are created with <code>validate_fields_for_doctype=False</code> so a field ERPNext may rename in a future version cannot abort the whole migrate.</small>
+
+  <h3 class="block" style="margin-left:2px">hooks.py wiring</h3>
+<pre><code>doctype_js = {
+    "Lead":        ["public/js/leads_activity_section.js", "public/js/lead.js"],
+    "Opportunity": ["public/js/leads_activity_section.js", "public/js/opportunity.js"],
+    "Customer":    ["public/js/customer.js"],
+}
+
+doc_events = {
+    "Lead": {
+        "before_validate": "...overrides.lead.clear_person_fields",
+        "validate":        ["...overrides.lead.validate_customer_fields",
+                            "...overrides.contact.refresh_own_table"],
+        "after_insert":    "...overrides.contact.refresh_after_insert",
+    },
+    "Opportunity": {
+        "validate":  ["...overrides.contact.refresh_own_table",
+                      "...overrides.project_tender.validate_approved_tender"],
+        "on_update": ["...overrides.project_tender.apply_approved_tender",
+                      "...overrides.contact.refresh_party_lead"],
+        "on_trash":  "...overrides.contact.refresh_party_lead",
+    },
+    "Contact": {
+        "on_update": "...overrides.contact.on_contact_update",
+        "on_trash":  "...overrides.contact.on_contact_trash",
+    },
+    # contracting app; never fires if it isn't installed
+    "Project Tender": {
+        "validate":  "...overrides.project_tender.validate_submitted_rows",
+        "on_update": "...overrides.project_tender.on_update",
+        "on_trash":  "...overrides.project_tender.on_trash",
+    },
+}
+
+after_migrate = [
+    "...overrides.lead.apply_lead_customizations",
+    "...overrides.opportunity.apply_opportunity_customizations",
+    "...overrides.project_tender.apply_project_tender_customizations",
+    # after the three above: they need the custom fields
+    "...doctype.leads_activity.leads_activity.backfill_activity_tables",
+    "...overrides.project_tender.backfill_opportunity_tenders",
+    "...overrides.contact.backfill_contact_tables",
+]
+
+override_doctype_dashboards = {
+    "Lead":        "...overrides.lead.get_dashboard_data",
+    "Opportunity": "...overrides.opportunity.get_dashboard_data",
+}</code></pre>
+  <small class="note">Paths abbreviated: each <code>...</code> is <code>custom_crm_updates</code>. 14 <code>doc_events</code> handlers over 4 DocTypes; a list runs in order, and Frappe calls each handler as <code>fn(doc, method)</code>. One whitelisted method exists: <code>overrides.project_tender.get_opportunity_tenders</code>.</small>
+</section>
+
+<section id="setup">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 02</div>
+    <h2>The setup layer — customizations created by code</h2>
+    <p>No Custom Field or Property Setter in this project was created by hand. Three functions build all of them, and <code>after_migrate</code> runs those functions on every deployment of every site.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">The pattern</h3>
+    <div class="pathbar"><b>custom_crm_updates/overrides/opportunity.py</b><span class="tag py">Python</span><span class="tag cfg">after_migrate</span></div>
+<pre><code>def apply_opportunity_customizations():
+    from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+    from frappe.custom.doctype.property_setter.property_setter import make_property_setter
+
+    create_custom_fields(CUSTOM_FIELDS, update=True)
+
+    # Extend core's options (read from the DocField, not the merged meta) so
+    # options ERPNext adds later are kept.
+    options = frappe.db.get_value(
+        "DocField", {"parent": "Opportunity", "fieldname": "status"}, "options"
+    ).split("\n")
+    options += [status for status in EXTRA_STATUSES if status not in options]
+    make_property_setter(
+        "Opportunity", "status", "options", "\n".join(options), "Text",
+        validate_fields_for_doctype=False,
+    )
+
+    for fieldname in HIDDEN_FIELDS:
+        make_property_setter(
+            "Opportunity", fieldname, "hidden", 1, "Check", validate_fields_for_doctype=False
+        )</code></pre>
+    <div class="kv">
+      <div>Idempotence</div><div><code>create_custom_fields(..., update=True)</code> inserts a missing field and updates an existing one. <code>make_property_setter</code> deletes any existing setter for the same doctype/field/property before inserting, so re-running replaces rather than duplicates.</div>
+      <div>Upgrade safety</div><div>The status options are rebuilt from the <strong>original</strong> <code>DocField</code> row, not from <code>frappe.get_meta()</code> (which already includes our setter). Reading the merged meta would append our two options to a list that already contains them — harmless here because of the <code>not in</code> guard, but it would also silently freeze whatever ERPNext shipped at that moment. Reading <code>DocField</code> means a status ERPNext adds in v15 survives.</div>
+      <div>Failure isolation</div><div><code>validate_fields_for_doctype=False</code> stops a setter for a field that no longer exists from aborting the entire <code>migrate</code>.</div>
+      <div>Cleanup</div><div><code>OBSOLETE_CUSTOM_FIELDS</code> in <code>lead.py</code> deletes fields from earlier iterations (an HTML field replaced by the activities table). Removing a dict from <code>CUSTOM_FIELDS</code> does <em>not</em> delete the field from the database — you must delete it explicitly.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Reordering core fields: the <code>field_order</code> rebuild</h3>
+    <div class="pathbar"><b>custom_crm_updates/overrides/lead.py</b> → <code>apply_field_order()</code>, <code>move_section()</code><span class="tag py">Python</span></div>
+<pre><code>def apply_field_order():
+    """Standard fields can only be reordered through a `field_order` Property
+    Setter (what Customize Form saves), so rebuild it from the current order
+    with our moves applied. Other reorderings made through Customize Form are
+    preserved."""
+    fields = frappe.get_meta("Lead", cached=False).fields
+    order = [df.fieldname for df in fields]
+    fieldtypes = {df.fieldname: df.fieldtype for df in fields}
+
+    new_order = move_section(order, fieldtypes, "organization_section", before="contact_info_tab")
+    # A Tab Break takes every field up to the next one, so the address section
+    # has to sit right before Activities rather than mid-Details.
+    new_order = move_section(
+        new_order, fieldtypes, "address_section", before="activities_tab", header=ADDRESS_TAB
+    )
+    new_order = move_section(new_order, fieldtypes, CONTACT_SECTION, before="activities_tab")
+
+    if new_order == order:
+        return
+
+    frappe.make_property_setter({...  "property": "field_order",
+                                      "value": json.dumps(new_order)},
+                                validate_fields_for_doctype=False)</code></pre>
+    <ul class="ticks">
+      <li><strong>Read, transform, write</strong> — never a hard-coded list. A field ERPNext adds later appears in <code>order</code> and is carried through; a manual reordering by an administrator is preserved unless it conflicts with one of the three moves.</li>
+      <li><strong><code>cached=False</code> matters.</strong> During <code>migrate</code> the cached meta can predate the Custom Fields that were created moments earlier in the same function.</li>
+      <li><strong>No-op guard.</strong> If the computed order equals the current one, no Property Setter is written — so a repeated migrate produces no document churn.</li>
+      <li><strong>Section-aware moves.</strong> <code>move_section</code> takes the section break <em>and every field up to the next break</em>, which is the only correct way to move a block in Frappe's flat field list.</li>
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Where a Custom Field actually lands on the form</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">Two different mechanisms, and confusing them is a real trap:</p>
+    <div class="kv">
+      <div><code>idx</code></div><div>Computed <strong>only when the Custom Field row is created</strong> (<code>CustomField.validate</code> runs the lookup under <code>if self.is_new() or self.insert_after == "append"</code>). Changing <code>insert_after</code> on an existing field does <em>not</em> recompute it.</div>
+      <div><code>insert_after</code></div><div>What <code>Meta.sort_fields()</code> actually uses at meta-build time: it collects custom fields into an <code>insert_after_map</code> and splices each one in after its anchor. So editing <code>insert_after</code> <em>does</em> move the field on the form, even though <code>idx</code> is stale.</div>
+      <div>Consequence</div><div>Order the dicts in <code>CUSTOM_FIELDS</code> so each anchor already exists when the next field is created (the tab before its table, the table before the field that follows it). <code>custom_approved_project_tender</code> is declared after <code>custom_project_tenders</code> and anchored to it, which is why it renders directly below the table.</div>
+    </div>
+  </div>
+</section>
+
+<section id="mirror">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 03</div>
+    <h2>Mechanism: populating a child table safely</h2>
+    <p>Four tables on this project show records that live in another DocType: the Lead's activities, the Opportunity's activities, the Opportunity's Project Tenders, and the Contacts tables on both. All four are written by the same 33 lines. This section is the full reasoning behind those lines.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">The problem</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">A Frappe child table is not a view. Its rows are real records in the child DocType's own table, keyed by <code>parent</code>, <code>parenttype</code> and <code>parentfield</code>. To show <em>Leads Activity</em> records inside the Lead's form as a grid, those rows have to be physically written into <code>tabLeads Activity Detail</code> against that Lead — and rewritten whenever the source changes. The naive implementations all fail:</p>
+    <div class="table-box" style="box-shadow:none">
+      <table>
+        <thead><tr><th>Naive approach</th><th>Why it fails here</th></tr></thead>
+        <tbody>
+          <tr><td><code>parent_doc.save()</code> after changing the rows</td><td>Runs the parent's full validation and all its hooks. A Lead with an unrelated validation problem would block an activity save; ERPNext's own Lead/Opportunity validations would run on a document the user never touched; and our own <code>validate</code> hooks would re-enter, risking recursion.</td></tr>
+          <tr><td>An HTML field rendering a server-side list</td><td>No grid: no ⚙ column picker, no sorting, no export, no per-user column widths. This was the first implementation and was replaced (its leftover field is in <code>OBSOLETE_CUSTOM_FIELDS</code>).</td></tr>
+          <tr><td>Raw <code>frappe.db.sql</code> inserts</td><td>Bypasses child-row naming, <code>idx</code> maintenance and the document cache; the open form would then show rows the cache does not know about.</td></tr>
+          <tr><td>Writing on read (<code>onload</code>)</td><td>A read request that writes is a lock and replication hazard, and it cannot help the list view or a report.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">The implementation</h3>
+    <div class="pathbar"><b>custom_crm_updates/mirror_table.py</b> — all 33 lines<span class="tag py">Python</span></div>
+<pre><code>import frappe
+from frappe.utils import now
+
+
+def rows_differ(existing, rows, fields):
+    """Compare as strings so a date loaded from the DB equals one from a query."""
+
+    def normalize(row):
+        return [None if row.get(f) is None else str(row.get(f)) for f in fields]
+
+    return [normalize(r) for r in existing] != [normalize(r) for r in rows]
+
+
+def set_mirror_rows(doctype, name, fieldname, rows, fields, bump_modified=True):
+    """Write `rows` into `name`'s `fieldname` table directly, without a full
+    save (no validations or hooks of the parent run). No-op when unchanged.
+
+    bump_modified: makes a stale open form refuse to save (and so overwrite
+    these rows) and reloads it instead. Tables that the parent recomputes on
+    its own save don't need it."""
+    doc = frappe.get_doc(doctype, name)
+    if not rows_differ(doc.get(fieldname), rows, fields):
+        return False
+
+    doc.set(fieldname, rows)
+    doc.update_child_table(fieldname)
+    if bump_modified:
+        doc.db_set("modified", now(), update_modified=False, notify=True)
+    return True</code></pre>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:14px 0 0">Four decisions are encoded here. Each one is load-bearing.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Decision 1 · <code>update_child_table</code> instead of <code>save()</code></h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0"><code>Document.update_child_table(fieldname)</code> is a Frappe API that writes <em>only</em> that table: it inserts or updates the rows now in memory and deletes the child rows of that <code>parentfield</code> that are no longer present. The parent row itself is not written, no <code>validate</code> runs, no <code>on_update</code> fires, no Version/audit entry is created for the parent.</p>
+    <ul class="ticks">
+      <li><strong>No permission check, by design.</strong> The user saving a Leads Activity may have no write access to the Lead. The mirror row is derived data about a record they can already read, so the write is a system action, not the user's.</li>
+      <li><strong>No recursion.</strong> Because the parent's <code>on_update</code> does not fire, a Contact that touches an Opportunity cannot trigger a chain back into the Contact.</li>
+      <li><strong>Child rows are still real documents.</strong> They get proper names and <code>idx</code> values, so the grid, exports and reports behave normally.</li>
+    </ul>
+    <small class="note">The trade-off is explicit: the parent's <code>modified_by</code> and its Version history do not record these row changes. That is acceptable because each mirror row carries a Link to the record it mirrors, and that record has its own full audit trail.</small>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Decision 2 · compare before writing (<code>rows_differ</code>)</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">Every sync first rebuilds the desired rows, then compares them field-by-field with what is stored. If they match, the function returns <code>False</code> and touches nothing.</p>
+    <div class="kv">
+      <div>Why string-normalise</div><div>A <code>date</code> loaded from the database is a <code>datetime.date</code>; the same value from <code>frappe.get_all</code> may be a string, and a <code>Currency</code> may be <code>Decimal</code> vs <code>float</code>. Comparing <code>str(...)</code> of each field in a fixed order makes the comparison stable, so a no-change sync is reliably detected as no change.</div>
+      <div>Why it matters</div><div>Without it, every save of every activity would rewrite rows and bump the parent's <code>modified</code>, which (a) makes every open Lead form reload constantly, (b) produces write amplification on a hot record, and (c) destroys the usefulness of <code>modified</code> as a change signal.</div>
+      <div>Where it pays off</div><div><code>after_migrate</code> runs three backfills over every record that has activities, tenders or contacts. On an unchanged site that whole pass performs <strong>zero writes</strong> — and there is a test asserting the parent's <code>modified</code> is identical after a second backfill.</div>
+      <div>Fixed field tuples</div><div><code>DETAIL_FIELDS</code>, <code>TENDER_ROW_FIELDS</code>, <code>CONTACT_ROW_FIELDS</code> define which columns participate. A column added to the child DocType but not to the tuple will never be detected as changed — see Risks.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Decision 3 · bumping <code>modified</code> is the concurrency control</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">This is the subtlest part of the design, and the reason the tables cannot silently lose data.</p>
+<pre class="sm"><code>doc.db_set("modified", now(), update_modified=False, notify=True)</code></pre>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:12px 0 0">Frappe uses the <code>modified</code> timestamp for optimistic concurrency: on every save it compares the timestamp the client sent with the one in the database and raises <code>TimestampMismatchError</code> ("Document has been modified after you have opened it") if they differ. Consider the race this prevents:</p>
+    <ol class="steps-list">
+      <li>User A opens Lead <em>L</em>. Their browser now holds a copy of <em>L</em> including its current mirror rows.</li>
+      <li>User B logs a new activity against <em>L</em>. The sync writes a new mirror row into <em>L</em>.</li>
+      <li>User A, still on the stale form, edits a phone number and saves. The browser posts <strong>its whole document</strong>, including the old child rows — which would delete B's new row.</li>
+    </ol>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:12px 0 0">Because step 2 bumped <code>modified</code>, step 3 is <strong>refused</strong> and the form reloads instead. The row survives. <code>notify=True</code> publishes a realtime <code>doc_update</code> event, so a form that is open and not dirty reloads immediately rather than waiting for the user to hit save and get an error. <code>update_modified=False</code> prevents Frappe from overwriting the explicit timestamp with its own.</p>
+    <div class="callout good">
+      <div class="ic">Tested</div>
+      <p><code>test_sync_invalidates_stale_lead_form</code> holds a stale copy of the Lead, creates an activity, and asserts that saving the stale copy raises <code>frappe.TimestampMismatchError</code>. If someone "optimises" the bump away, that test fails.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Decision 4 · when <em>not</em> to bump — the Contacts table</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">The contacts mirror passes <code>bump_modified=False</code>, and that is not an inconsistency. It is maintained from <strong>three</strong> directions:</p>
+    <div class="table-box" style="box-shadow:none">
+      <table>
+        <thead><tr><th>Direction</th><th>Hook</th><th>Write path</th></tr></thead>
+        <tbody>
+          <tr><td>The parent saves itself</td><td><code>Lead</code> / <code>Opportunity</code> <code>validate</code> → <code>refresh_own_table</code></td><td>Sets the rows <em>in memory</em> on the document being saved, so they are written by that save.</td></tr>
+          <tr><td>A Contact changes</td><td><code>Contact</code> <code>on_update</code> / <code>on_trash</code></td><td><code>sync_contact_table</code> → <code>set_mirror_rows(..., bump_modified=False)</code>. <code>affected_docs</code> adds the Lead behind each linked Opportunity.</td></tr>
+          <tr><td>An Opportunity appears, moves or goes</td><td><code>Opportunity</code> <code>on_update</code> / <code>on_trash</code></td><td><code>refresh_party_lead</code> → the Lead's table. No Contact changed, so no Contact event would fire; the roll-up still has to follow.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:12px 0 0">Because the parent recomputes this table from scratch on <em>its own</em> save, a stale form cannot leave wrong rows behind: whatever rows it posts are immediately overwritten by the recomputation during <code>validate</code>. The optimistic-lock protection is therefore unnecessary here, and skipping it avoids reloading every open Lead form whenever anyone edits an unrelated contact.</p>
+    <small class="note">The activities and tenders tables cannot use that trick: a Lead's <code>validate</code> does not know about Leads Activity, and recomputing a tender list on every Opportunity save would couple the Opportunity to the <code>contracting</code> app. Hence they bump; contacts do not.</small>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Concurrency analysis</h3>
+    <div class="kv">
+      <div>Transaction boundary</div><div>One HTTP request (or one background job) is one MariaDB transaction in Frappe. A sync therefore commits atomically with whatever triggered it: if the activity save fails later, its mirror write is rolled back too — the table can never show a row for a record that does not exist.</div>
+      <div>Two concurrent syncs</div><div>Each sync <strong>recomputes the full row set from the source of truth</strong> rather than applying a delta. Two activities saved at the same instant produce two full recomputes; whichever commits last writes a complete, correct set. Last-writer-wins is safe precisely because nobody writes a partial update.</div>
+      <div>The interleaving window</div><div>A sync reads the source, compares, then writes. If another transaction inserts a source record between the read and the write, the row set written can be one record behind — but that other transaction runs <em>its own</em> sync immediately after, which brings the table level. Convergence is guaranteed by the fact that every writer recomputes everything.</div>
+      <div>Locking</div><div><code>frappe.get_doc</code> does not lock. <code>db_set</code> on the parent takes a row lock on that single parent row for the rest of the transaction. Two syncs of the <em>same</em> parent serialise there; syncs of different parents never contend. Lock ordering is consistent (child rows then parent row), so this pattern does not deadlock against itself.</div>
+      <div>Deletes</div><div><code>on_trash</code> handlers pass <code>exclude=&lt;name&gt;</code> and run <strong>before</strong> Frappe's link-existence check. The mirror row holds a Link to the record being deleted, which would otherwise raise <code>LinkExistsError</code> and make the record undeletable. Removing the row first is what keeps delete working.</div>
+      <div>Background jobs</div><div>Nothing here is queued — all syncs run inline in the triggering request. That keeps them inside the same transaction (no "row appears five seconds later" window) at the cost of a little latency on save. For much larger row sets, moving to <code>frappe.enqueue</code> would require giving up that atomicity deliberately.</div>
+    </div>
+  </div>
+</section>
+
+<section id="midsave">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 04</div>
+    <h2>Mechanism: writing to the document that is currently saving</h2>
+    <p>The approved-tender flow (modification 2) breaks the assumption every other sync relies on: the parent being updated <em>is</em> the document in the middle of its own save. This needed two extra pieces.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Frappe's save lifecycle, and where the hooks sit</h3>
+    <figure style="margin-top:12px">
+      <svg viewBox="0 0 980 232" role="img" aria-label="Diagram of the Frappe save lifecycle. The request arrives, then run_before_save_methods runs before_validate, validate and before_save hooks, then _validate runs link and mandatory validation, then db_update writes the row, then run_post_save_methods runs on_update hooks, then the transaction commits and the saved document is returned to the client. Our validate hooks attach to the validate stage and apply_approved_tender attaches to the on_update stage, which is after the row has already been written.">
+        <defs><marker id="r1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g class="sv-flow" marker-end="url(#r1)">
+          <line x1="120" y1="64" x2="152" y2="64"/><line x1="300" y1="64" x2="332" y2="64"/>
+          <line x1="452" y1="64" x2="484" y2="64"/><line x1="600" y1="64" x2="632" y2="64"/>
+          <line x1="780" y1="64" x2="812" y2="64"/>
+        </g>
+        <g>
+          <rect x="10" y="44" width="110" height="40" rx="8" class="sv-box"/><text x="22" y="69" class="sv-t">request</text>
+          <rect x="154" y="40" width="146" height="48" rx="8" class="sv-box sv-acc"/><text x="166" y="59" class="sv-t">before_save</text><text x="166" y="77" class="sv-s">validate hooks</text>
+          <rect x="334" y="40" width="118" height="48" rx="8" class="sv-box"/><text x="346" y="59" class="sv-t">_validate</text><text x="346" y="77" class="sv-s">links · reqd</text>
+          <rect x="486" y="40" width="114" height="48" rx="8" class="sv-box"/><text x="498" y="59" class="sv-t">db_update</text><text x="498" y="77" class="sv-s">row written</text>
+          <rect x="634" y="40" width="146" height="48" rx="8" class="sv-box sv-acc"/><text x="646" y="59" class="sv-t">post_save</text><text x="646" y="77" class="sv-s">on_update hooks</text>
+          <rect x="814" y="40" width="156" height="48" rx="8" class="sv-box"/><text x="826" y="59" class="sv-t">commit + respond</text><text x="826" y="77" class="sv-s">doc returned as-is</text>
+        </g>
+        <g>
+          <rect x="154" y="140" width="298" height="64" rx="8" class="sv-box-2"/>
+          <text x="166" y="160" class="sv-t">validate_approved_tender</text>
+          <text x="166" y="177" class="sv-s">rejects a tender from another</text><text x="166" y="192" class="sv-s">Opportunity (API backstop)</text>
+          <rect x="634" y="140" width="336" height="64" rx="8" class="sv-box-2"/>
+          <text x="646" y="160" class="sv-t">apply_approved_tender</text>
+          <text x="646" y="177" class="sv-s">saves the tender as Won, then rewrites</text><text x="646" y="192" class="sv-s">this document's mirror rows in memory</text>
+          <line x1="228" y1="92" x2="228" y2="136" class="sv-line"/>
+          <line x1="706" y1="92" x2="706" y2="136" class="sv-line"/>
+        </g>
+      </svg>
+      <figcaption>The last box is the one that bites: whatever is in memory at <code>on_update</code> is what the client receives, and the row has already been written. Anything that changes the database afterwards leaves the response stale.</figcaption>
+    </figure>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">The failure this avoids</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 10px">Without the two extra pieces, the Won flow would do this:</p>
+    <ol class="steps-list">
+      <li>The Opportunity's row is written, <code>modified</code> = T1. The in-memory document (the one that will be returned) holds T1.</li>
+      <li><code>on_update</code> saves the Project Tender as Won.</li>
+      <li>The tender's own <code>on_update</code> calls <code>sync_opportunity_tenders</code>, which bumps the Opportunity's <code>modified</code> to <strong>T2</strong> in the database.</li>
+      <li>The response hands the browser a document claiming <code>modified</code> = T1, while the database says T2 — so the user's <em>next</em> save is rejected with "Document has been modified", on a document only they were editing.</li>
+    </ol>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:12px 0 0">The realtime <code>notify</code> would often paper over it by reloading the form, but that is a race, not a fix.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">The fix: a suppression flag plus an in-memory refresh</h3>
+    <div class="pathbar"><b>custom_crm_updates/overrides/project_tender.py</b><span class="tag py">Python</span></div>
+<pre><code>def set_tender_won(tender_name, opportunity):
+    tender = frappe.get_doc("Project Tender", tender_name)
+    if tender.status == "Won":
+        return False
+
+    tender.status = "Won"
+    tender.flags.ignore_permissions = True
+    # The Opportunity is mid-save; apply_approved_tender refreshes its table.
+    tender.flags.skip_opportunity_sync = True
+    tender.save()
+    ...
+    return True
+
+
+def on_update(doc, method=None):
+    """doc_events: Project Tender on_update (after contracting's own)."""
+    before = doc.get_doc_before_save()
+    # skip_opportunity_sync: saved from apply_approved_tender, i.e. from the
+    # Opportunity's own save, which refreshes its table itself (see there).
+    if not doc.flags.get("skip_opportunity_sync"):
+        for opportunity in {doc.get(OPPORTUNITY_FIELD), before and before.get(OPPORTUNITY_FIELD)} - {None}:
+            sync_opportunity_tenders(opportunity)
+    ...
+
+
+def refresh_tender_rows(doc):
+    """The table of an Opportunity that is being saved right now: written
+    through the document itself, and without the modified bump
+    sync_opportunity_tenders makes — the form doing the saving would otherwise
+    come back one step behind the database and refuse its next save."""
+    rows = tender_rows(doc.name)
+    if rows_differ(doc.get(TENDER_TABLE), rows, TENDER_ROW_FIELDS):
+        doc.set(TENDER_TABLE, rows)
+        doc.update_child_table(TENDER_TABLE)</code></pre>
+    <div class="kv">
+      <div><code>doc.flags</code></div><div>A per-document scratch dict that is <strong>not</strong> persisted. It travels with the in-memory object through the save, so a hook can tell "who saved me". This is the idiomatic Frappe way to pass intent down a call chain without a global.</div>
+      <div>Why not a module global</div><div>A global would leak across documents in the same request and across jobs in the same worker process. Document flags are scoped to the object.</div>
+      <div>Net effect</div><div>The tender is saved (its own Won automation runs in full), the usual bump is suppressed for this one path, and the Opportunity's rows are rewritten through the saving document — so database and response agree, and <code>modified</code> is untouched.</div>
+      <div>Verified</div><div><code>test_the_saved_form_is_not_left_behind_the_database</code> asserts <code>opportunity.modified</code> equals the database's value after the Won save.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Rollback semantics — a deliberate choice</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0"><code>set_tender_won</code> performs a <strong>full</strong> <code>tender.save()</code>, so the <code>contracting</code> app's own Won automation runs: it raises a Project and a Sales Order per linked Tender, and its <code>validate_won_preconditions</code> can refuse (a Tender that is not Complete, a BOQ row with no Item, a non-integer quantity on a whole-number UOM).</p>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:10px 0 0">That exception is <strong>allowed to propagate</strong>. It aborts the request, so the Opportunity's own save is rolled back with it. The alternative — catching it — would leave a Won Opportunity whose approved tender is not Won and whose Project was never created. A loud failure with contracting's own precise message was judged better than a quiet split-brain.</p>
+    <div class="callout">
+      <div class="ic">Trade-off</div>
+      <p>The cost is that a user cannot close the Opportunity as Won until the tender is genuinely ready. That is a business rule inherited from the <code>contracting</code> app, not one this app invented — but it is worth knowing before someone reports it as a bug.</p>
+    </div>
+  </div>
+</section>
+
+<section id="multisite">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 05</div>
+    <h2>Multi-site behaviour and cross-site concurrency</h2>
+    <p>This bench serves two sites from one copy of the code. Understanding what is shared and what is not is the difference between a deployment that works and one that half-works.</p>
+  </div>
+
+  <div class="callout info">
+    <div class="ic">Correct a common assumption</div>
+    <p><strong>There is no synchronization between sites, and there must not be.</strong> A mirror table on <code>site1.local</code> is rebuilt only from records in <code>site1.local</code>'s own database. The word "concurrent" across sites means two independent request streams running the same code against different databases — never one site observing the other. If cross-site data sharing is ever required, it has to be built explicitly (an API call, a sync job), and none of the mechanisms in this document provide it.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">What is shared and what is per site</h3>
+    <div class="table-box" style="box-shadow:none">
+      <table>
+        <thead><tr><th>Thing</th><th>Scope</th><th>Consequence for this app</th></tr></thead>
+        <tbody>
+          <tr><td>Python / JS source</td><td><strong>Shared</strong> — one <code>apps/custom_crm_updates</code></td><td>A code change affects every site on the next restart. There is no per-site code branch.</td></tr>
+          <tr><td>Custom Fields, Property Setters</td><td><strong>Per site</strong> — rows in that site's DB</td><td>Why they are generated by code: <code>bench --site X migrate</code> makes site X match the code. A site that was not migrated has the new code but not the new field.</td></tr>
+          <tr><td>DocType schema (our 5)</td><td><strong>Per site</strong> tables, created from shared JSON</td><td><code>migrate</code> runs <code>sync_doctypes</code>, so <code>mandatory_depends_on</code> added to <code>leads_activity.json</code> only appears after migrating that site.</td></tr>
+          <tr><td>Installed app list</td><td><strong>Per site</strong> (<code>bench --site X list-apps</code>)</td><td><code>sites/apps.txt</code> is bench-wide and is <em>not</em> the same thing. <code>contracting</code> may be installed on one site and absent from another — hence the <code>frappe.db.exists("DocType", "Project Tender")</code> guard.</td></tr>
+          <tr><td>Redis cache</td><td><strong>Keyed per site</strong> in a shared Redis</td><td><code>bench --site X clear-cache</code> clears that site's DocType meta and form scripts. Forgetting it is the usual reason "my change did not appear".</td></tr>
+          <tr><td>Realtime (socketio)</td><td><strong>Per site room</strong></td><td><code>notify=True</code> reaches only users on that site; it cannot leak a document event across tenants.</td></tr>
+          <tr><td>RQ workers &amp; scheduler</td><td><strong>Shared processes, per-site jobs</strong></td><td>A worker imports the code once and switches site context per job. Module-level mutable state would leak between sites — which is why nothing here keeps module-level state.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Deployment order, and what breaks when a step is skipped</h3>
+<pre class="sm"><code>git -C apps/custom_crm_updates pull
+bench build --app custom_crm_updates        # bundles public/js — bench-wide
+for site in site1.local friendmix.local; do
+  bench --site $site migrate                # DocTypes, Custom Fields, Property Setters, backfills
+  bench --site $site clear-cache            # DocType meta + the DocType's own .js
+done
+bench restart                               # reload Python in web + workers</code></pre>
+    <div class="table-box" style="box-shadow:none;margin-top:12px">
+      <table>
+        <thead><tr><th>Skipped</th><th>Symptom</th></tr></thead>
+        <tbody>
+          <tr><td><code>migrate</code></td><td>New hooks run against a site with no <code>custom_approved_project_tender</code> field: <code>doc.get(...)</code> returns <code>None</code>, the popup's field write is dropped, and the Won flow silently does nothing.</td></tr>
+          <tr><td><code>build</code></td><td><code>public/js</code> changes do not reach the browser; the Won popup never opens, with no error.</td></tr>
+          <tr><td><code>clear-cache</code></td><td>A <em>DocType's own</em> script (<code>leads_activity.js</code>) and its meta are served from cache, so <code>mandatory_depends_on</code> and the new <code>validate</code> handler appear to have been ignored. This one caught us during development.</td></tr>
+          <tr><td><code>restart</code></td><td>Web workers keep the old Python modules; new validations do not fire. (In <code>bench start</code> development mode the reloader usually handles this; in a supervisor/production setup it does not.)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <small class="note">Backfills are part of <code>migrate</code>, which is why migrating is also the cleanup step: <code>backfill_contact_tables</code> is what removes the party contacts that Opportunities mirrored before modification 6, and it does so per site.</small>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Idempotence as the multi-site contract</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">Because <code>after_migrate</code> runs on <em>every</em> migrate of <em>every</em> site forever, each of the six steps must be safe to run repeatedly against a database in any prior state. The guarantees:</p>
+    <ul class="ticks">
+      <li><code>create_custom_fields(update=True)</code> — insert or update; never duplicates.</li>
+      <li><code>make_property_setter</code> — replaces the matching setter.</li>
+      <li><code>apply_field_order</code> — recomputes from the live order and writes nothing when unchanged.</li>
+      <li>The three backfills — <code>rows_differ</code> means an already-correct record is not written, so a repeat pass does no I/O and bumps nobody's <code>modified</code>.</li>
+      <li><code>apply_project_tender_customizations</code> — returns immediately if <code>Project Tender</code> does not exist on this site.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="security">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 06</div>
+    <h2>Permissions, trust boundaries and injection surface</h2>
+    <p>Where this app bypasses permissions on purpose, where it re-checks them, and what is deliberately not treated as a security control.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Every <code>ignore_permissions</code>, and its justification</h3>
+    <div class="table-box" style="box-shadow:none">
+      <table>
+        <thead><tr><th>Call site</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><code>tender.insert(ignore_permissions=True)</code> in <code>create_project_tender_for_activity</code></td><td>A Sales User has no role on Project Tender (a <code>contracting</code> DocType) but must be able to log a Tendering activity. The user is permitted to do the <em>trigger</em>; the consequence is a system action.</td></tr>
+          <tr><td><code>tender.flags.ignore_permissions = True</code> in <code>set_tender_won</code></td><td>Same reasoning for the approved-tender update.</td></tr>
+          <tr><td><code>activity.flags.ignore_permissions = True</code> in <code>mark_activity_done</code></td><td>Whoever submits a tender may have no write access to Leads Activity.</td></tr>
+          <tr><td><code>customer.flags.ignore_permissions = True</code> in <code>insert_customer</code></td><td>Lead → Customer conversion is triggered by an activity; the CRM user may not be allowed to create Customers directly.</td></tr>
+          <tr><td><code>_make_customer(lead, ignore_permissions=True)</code></td><td>Same, inside ERPNext's own mapper.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <div class="ic">Important</div>
+      <p><code>ignore_permissions</code> skips <strong>permission checks only</strong>. It does not skip <code>validate</code>, mandatory fields or link validation — so an automation can create a record the user could not create by hand, but it can never create an <em>invalid</em> one. Treat each use as a decision that the triggering action is itself the authorisation, and keep that reasoning in a comment: all five above carry one.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">The one whitelisted endpoint</h3>
+    <div class="pathbar"><b>overrides/project_tender.py</b> → <code>get_opportunity_tenders</code><span class="tag py">Python</span><span class="tag risk">trust boundary</span></div>
+<pre><code>@frappe.whitelist()
+def get_opportunity_tenders(opportunity):
+    """The list behind the "which tender was approved?" popup
+    (public/js/opportunity.js), oldest first like the Opportunity's own table.
+
+    Read as the system, exactly like that table: Project Tender is a
+    contracting doctype, and the Sales User closing the Opportunity has no
+    role on it."""
+    frappe.has_permission("Opportunity", doc=opportunity, throw=True)
+
+    return frappe.get_all(
+        "Project Tender",
+        filters={OPPORTUNITY_FIELD: opportunity},
+        fields=["name", "project_name", "client", "status", "total_sell_price"],
+        order_by="creation asc",
+    )</code></pre>
+    <div class="kv">
+      <div>Threat</div><div><code>@frappe.whitelist()</code> makes this callable by <strong>any logged-in user</strong> with any <code>opportunity</code> argument. Without a check it would be an enumeration endpoint over every Project Tender in the system.</div>
+      <div>Control</div><div><code>frappe.has_permission("Opportunity", doc=opportunity, throw=True)</code> — note <code>doc=</code>, not just the doctype: that form also applies <em>User Permissions</em> and share rules for that specific record, so a user restricted to one territory cannot read another's tenders.</div>
+      <div>Why <code>frappe.get_all</code></div><div><code>frappe.get_all</code> ignores permissions by design (unlike <code>frappe.get_list</code>). That is intentional and is the same stance the mirror table takes: having read the Opportunity authorises reading its tenders. The explicit check above is what makes that stance safe.</div>
+      <div>Return shape</div><div>Only the five fields the popup needs. No cost breakdown, no internal margin — a whitelisted method should return the minimum, because its response is visible in the browser's network tab.</div>
+      <div>Not a filter</div><div>The server-side filter restricts the <em>list</em>; it does not stop a crafted save from naming a tender of another Opportunity. That is what <code>validate_approved_tender</code> is for — see below.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Client-side restrictions are never the rule</h3>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 10px">Three pairs in this app follow the same discipline: a form-side convenience plus a server-side rule that actually holds.</p>
+    <div class="table-box" style="box-shadow:none">
+      <table>
+        <thead><tr><th>Form side (convenience)</th><th>Server side (the rule)</th></tr></thead>
+        <tbody>
+          <tr><td>Popup offers only this Opportunity's tenders; the field is <code>read_only</code></td><td><code>validate_approved_tender</code> rejects a tender whose <code>custom_opportunity</code> is not this document</td></tr>
+          <tr><td><code>mandatory_depends_on</code> + a <code>validate</code> handler in <code>leads_activity.js</code></td><td><code>LeadsActivity.validate_registration_attachment</code></td></tr>
+          <tr><td><code>mandatory_depends_on: "eval:1"</code> on Customer Group / Territory</td><td><code>validate_customer_fields</code> on Lead <code>validate</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <small class="note"><code>read_only</code> and <code>no_copy</code> are <strong>UI flags, not permissions</strong>. Frappe does enforce <code>read_only</code> on the server for a normal user save, but a whitelisted method, a Server Script, Data Import or anything running with <code>ignore_permissions</code> can still write the field — which is exactly why the backstop exists.</small>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Injection and output-escaping surface</h3>
+    <div class="kv">
+      <div>SQL</div><div>Every query goes through <code>frappe.get_all</code> / <code>frappe.db.get_value</code> with dict or list filters, which are parameterised. There is no <code>frappe.db.sql</code> anywhere in the app.</div>
+      <div>f-strings in queries</div><div>Two exist — <code>f"{ACTIVITY_FIELD} as leads_activity"</code> and the <code>order_by</code> strings. Both interpolate <strong>module-level constants</strong>, never user input. Keep it that way: a fieldname or <code>order_by</code> built from a request parameter is an injection vector, because those parts cannot be parameterised.</div>
+      <div>Child-table filters</div><div><code>get_contact_rows</code> uses the list form <code>[["Dynamic Link", "link_doctype", "=", doctype], ...]</code>, which Frappe compiles to a join with bound values. The <code>order_by</code> is table-qualified (<code>`tabContact`.creation</code>) because the joined table also has a <code>creation</code> column — a correctness fix, not a security one.</div>
+      <div>HTML in messages</div><div><code>frappe.msgprint</code> and <code>add_comment</code> render HTML. The only interpolated values are system-generated record names and <code>get_link_to_form</code> output. If you ever interpolate a user-entered field (a project name, a person's name) into a message, escape it — <code>frappe.utils.escape_html</code> — or you have stored XSS in the timeline.</div>
+      <div>Client-side</div><div>The popup builds Select options from server data and assigns them as option <em>values/labels</em>, not as HTML. The one HTML field in the dialog is a static string. The pre-existing <code>project_tender.js</code> grid formatter already uses <code>frappe.utils.escape_html</code> for the same reason.</div>
+      <div>Translations</div><div>Messages are Arabic source strings inside <code>_()</code>. Nothing security-relevant, but worth noting: <code>_()</code> resolves against the <em>user's</em> language, so a translation file can change what a user sees without a code change.</div>
+    </div>
+  </div>
+</section>
+
+<section id="steps">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 07</div>
+    <h2>Step index — files, configuration and key symbols</h2>
+    <p>The same 24 steps as the walkthrough, in build order, with everything needed to find the code. Mechanism tags: <span class="tag cfg">CF</span> Custom Field · <span class="tag cfg">PS</span> Property Setter · <span class="tag py">HK</span> Hook · <span class="tag js">CS</span> Client Script · <span class="tag cfg">DT</span> DocType.</p>
+  </div>
+  <div class="table-box">
+    <table>
+      <thead><tr><th>#</th><th>Step</th><th>Mechanism</th><th>Files</th><th>Key symbols</th></tr></thead>
+      <tbody>
+        <tr><td>01</td><td>Is Company hides person fields</td><td>CF · PS · HK</td><td><code>overrides/lead.py</code></td><td><code>IS_COMPANY</code>, <code>PERSON_FIELDS</code>, <code>clear_person_fields</code> (<code>before_validate</code>)</td></tr>
+        <tr><td>02</td><td>Organization above Contact Info</td><td>PS</td><td><code>overrides/lead.py</code></td><td><code>apply_field_order</code>, <code>move_section</code></td></tr>
+        <tr><td>03</td><td>Leads Activity DocType</td><td>DT</td><td><code>doctype/leads_activity/*</code>, <code>doctype/leads_activity_attachment/*</code></td><td><code>LeadsActivity</code>, <code>link_type</code> / <code>link_name</code> (Dynamic Link)</td></tr>
+        <tr><td>04</td><td>Activities drive qualification</td><td>HK</td><td><code>doctype/leads_activity/leads_activity.py</code></td><td><code>on_update</code>, <code>set_lead_qualification</code> (<code>db_set</code> + <code>add_comment</code>)</td></tr>
+        <tr><td>05</td><td>Create ▸ Activity</td><td>CS</td><td><code>public/js/lead.js</code>, <code>leads_activity_section.js</code></td><td><code>LeadController</code>, <code>make_activity</code>, <code>setup_activity_make_method</code></td></tr>
+        <tr><td>06</td><td>Activities as a mirror table</td><td>CF · DT</td><td><code>leads_activity.py</code>, <code>mirror_table.py</code>, <code>leads_activity_detail/*</code></td><td><code>activity_table_fields</code>, <code>sync_activity_table</code>, <code>set_mirror_rows</code>, <code>DETAIL_FIELDS</code></td></tr>
+        <tr><td>07</td><td>Opportunity's own activities</td><td>CF</td><td><code>overrides/opportunity.py</code></td><td><code>activity_table_fields("Opportunity Activities")</code>, <code>TABLE_DOCTYPES</code></td></tr>
+        <tr><td>08</td><td>Address &amp; Contacts tab</td><td>CF · PS</td><td><code>overrides/lead.py</code></td><td><code>ADDRESS_TAB</code>, <code>ADDRESS_SECTION_PROPERTIES</code></td></tr>
+        <tr><td>09</td><td>Tendering type · new statuses</td><td>DT JSON · PS</td><td><code>leads_activity.json</code>, <code>overrides/opportunity.py</code></td><td><code>EXTRA_STATUSES</code>, <code>options</code> setter from <code>DocField</code></td></tr>
+        <tr><td>10</td><td>Tendering activity → Project Tender</td><td>HK · CF</td><td><code>overrides/project_tender.py</code></td><td><code>create_project_tender_for_activity</code>, <code>OPPORTUNITY_FIELD</code>, <code>ACTIVITY_FIELD</code>, <code>get_opportunity_customer</code></td></tr>
+        <tr><td>11</td><td>Project Tender tab + mirror</td><td>CF · HK</td><td><code>overrides/opportunity.py</code>, <code>project_tender.py</code>, <code>opportunity_project_tender/*</code></td><td><code>TENDER_TABLE</code>, <code>tender_rows</code>, <code>sync_opportunity_tenders</code>, <code>on_trash</code></td></tr>
+        <tr><td>12</td><td>Submitted → activity Done</td><td>HK</td><td><code>overrides/project_tender.py</code></td><td><code>on_update</code> + <code>has_value_changed("status")</code>, <code>mark_activity_done</code></td></tr>
+        <tr><td>13</td><td>Registration Done → Customer</td><td>HK</td><td><code>overrides/lead.py</code></td><td><code>convert_lead_to_customer</code>, <code>insert_customer</code>, ERPNext <code>_make_customer</code></td></tr>
+        <tr><td>14</td><td>Contacts as a mirror table</td><td>CF · PS · HK</td><td><code>overrides/contact.py</code>, <code>leads_contact_detail/*</code></td><td><code>get_contact_rows</code>, <code>refresh_own_table</code>, <code>on_contact_update</code>, <code>affected_docs</code></td></tr>
+        <tr><td>15</td><td>Empty tables stay visible</td><td>CS</td><td><code>public/js/leads_activity_section.js</code></td><td><code>show_when_empty</code> (wraps <code>get_status</code>)</td></tr>
+        <tr><td>16</td><td>Customer Group / Territory mandatory</td><td>CF · PS · HK</td><td><code>overrides/lead.py</code></td><td><code>CUSTOMER_FIELDS</code>, <code>MANDATORY_DEPENDS_ON</code>, <code>validate_customer_fields</code></td></tr>
+        <tr><td>17</td><td>Wiring</td><td>cfg</td><td><code>hooks.py</code></td><td><code>doc_events</code>, <code>after_migrate</code>, <code>doctype_js</code>, <code>override_doctype_dashboards</code></td></tr>
+        <tr><td>18</td><td><b>Mod 1</b> · Submitted no longer wins the deal</td><td>HK</td><td><code>overrides/project_tender.py</code></td><td><code>mark_opportunity_won</code> <em>deleted</em>; <code>on_update</code> trimmed</td></tr>
+        <tr><td>19</td><td><b>Mod 2</b> · Won → approved tender</td><td>CS · HK · CF</td><td><code>public/js/opportunity.js</code>, <code>overrides/project_tender.py</code>, <code>overrides/opportunity.py</code></td><td><code>get_opportunity_tenders</code>, <code>validate_approved_tender</code>, <code>apply_approved_tender</code>, <code>set_tender_won</code>, <code>refresh_tender_rows</code>, <code>APPROVED_TENDER_FIELD</code></td></tr>
+        <tr><td>20</td><td><b>Mod 3</b> · Tender-created message</td><td>HK</td><td><code>overrides/project_tender.py</code></td><td><code>frappe.msgprint</code> + <code>get_link_to_form</code></td></tr>
+        <tr><td>21</td><td><b>Mod 4</b> · Registration needs an attachment</td><td>DT JSON · CS · HK</td><td><code>leads_activity.json</code>, <code>leads_activity.js</code>, <code>leads_activity.py</code></td><td><code>mandatory_depends_on</code>, client <code>validate</code>, <code>validate_registration_attachment</code></td></tr>
+        <tr><td>22</td><td><b>Mod 5</b> · Submitted needs costing</td><td>HK</td><td><code>overrides/project_tender.py</code>, <code>hooks.py</code></td><td><code>SUBMITTED_REQUIRED_TABLES</code>, <code>validate_submitted_rows</code></td></tr>
+        <tr><td>23</td><td><b>Mod 6</b> · Contacts separated</td><td>HK · CS</td><td><code>overrides/contact.py</code>, <code>leads_activity_section.js</code>, <code>opportunity.js</code></td><td><code>get_contact_rows</code> (party source removed), <code>affected_docs</code>, <code>frappe.dynamic_link</code>, <code>set_contact_person_query</code></td></tr>
+        <tr><td>24</td><td>Ordering · Arabic messages</td><td>HK · CS</td><td>all four sync functions; every <code>throw</code>/<code>msgprint</code></td><td><code>order_by="creation asc"</code>; Arabic source strings inside <code>_()</code></td></tr>
+        <tr><td>25</td><td>Lead rolls up its Opportunities' contacts</td><td>HK</td><td><code>overrides/contact.py</code>, <code>hooks.py</code></td><td><code>contact_sources</code>, <code>lead_of</code>, <code>affected_docs</code>, <code>refresh_party_lead</code></td></tr>
+        <tr><td>26</td><td>Create ▸ Opportunity on Customer</td><td>CS</td><td><code>public/js/customer.js</code>, <code>hooks.py</code></td><td><code>open_mapped_doc</code> → <code>erpnext…customer.make_opportunity</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Code · the two validation rules added in Phase 2</h3>
+    <div class="pathbar"><b>overrides/project_tender.py</b> → <code>validate_submitted_rows</code><span class="tag py">Project Tender · validate</span></div>
+<pre><code>SUBMITTED_REQUIRED_TABLES = (
+    "direct_cost_details",
+    "indirect_cost_details",
+    "overhead_deduction_details",
+)
+
+def validate_submitted_rows(doc, method=None):
+    """doc_events: Project Tender validate. Submitting a tender is sending a
+    price to the client, so all three cost tables have to be filled in first.
+    Checked on validate rather than on the status change alone, so emptying a
+    table on an already-submitted tender is refused too."""
+    if doc.status != "Submitted":
+        return
+
+    # Labels are left untranslated: field names stay as they are in the system.
+    empty = [doc.meta.get_label(fieldname) for fieldname in SUBMITTED_REQUIRED_TABLES if not doc.get(fieldname)]
+    if empty:
+        frappe.throw(
+            _("لا يمكن تحويل Project Tender إلى الحالة Submitted قبل استكمال بيانات الجداول الفرعية. أضف صفاً واحداً على الأقل في: {0}.").format(
+                "، ".join(empty)
+            ),
+            title=_("Project Tender غير مكتمل"),
+        )</code></pre>
+    <div class="pathbar" style="margin-top:16px"><b>doctype/leads_activity/leads_activity.py</b><span class="tag py">Leads Activity · validate</span></div>
+<pre><code>def validate(self):
+    self.validate_registration_attachment()
+
+def validate_registration_attachment(self):
+    """... The form shows the same rule through the table's mandatory_depends_on
+    and repeats this message before saving (leads_activity.js).
+
+    A row with no file is not an attachment: counting it would hand the
+    user Frappe's generic "mandatory field in row 1" error instead of this
+    one, which says what is actually needed."""
+    if self.activity_type != "Registration":
+        return
+
+    if not [row for row in self.attachments if row.attachment]:
+        frappe.throw(
+            _("لا يمكن حفظ Activity من النوع Registration بدون مرفقات. أرفق ملفاً واحداً على الأقل في جدول Attachments."),
+            title=_("مرفق مطلوب"),
+        )</code></pre>
+    <div class="kv">
+      <div>Why <code>validate</code>, not the status transition</div><div>A transition-only check cannot see a later edit that empties a table. Validating the <em>state</em> rather than the <em>change</em> makes the invariant hold for every save path.</div>
+      <div>Label translation</div><div><code>doc.meta.get_label()</code> is deliberately <strong>not</strong> wrapped in <code>_()</code>: the requirement is Arabic prose with English field names, and translating the label would produce a mixed message that no longer matches the form.</div>
+      <div>Ordering inside the save</div><div>Our <code>validate</code> hook runs in <code>run_before_save_methods</code>, before Frappe's <code>_validate_mandatory</code>. That is why filtering out file-less rows produces our message rather than Frappe's generic row-level error.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Code · the Lead's roll-up (step 25)</h3>
+    <div class="pathbar"><b>overrides/contact.py</b><span class="tag py">Python</span><span class="tag cfg">Opportunity on_update / on_trash</span></div>
+<pre><code>def contact_sources(doctype, name, exclude_opportunity=None):
+    """The documents whose contacts this table lists. An Opportunity lists its
+    own; a Lead lists its own first, then those of each Opportunity made from
+    it, oldest Opportunity first.
+
+    exclude_opportunity: an Opportunity being deleted. It is still in the
+    database while on_trash runs, so it has to be left out by hand."""
+    sources = [(doctype, name)]
+    if doctype != "Lead":
+        return sources
+
+    sources += [
+        ("Opportunity", opportunity)
+        for opportunity in frappe.get_all(
+            "Opportunity",
+            filters={"opportunity_from": "Lead", "party_name": name},
+            pluck="name", order_by="creation asc",
+        )
+        if opportunity != exclude_opportunity
+    ]
+    return sources
+
+
+def refresh_party_lead(doc, method=None):
+    """doc_events Opportunity on_update / on_trash: a Lead rolls up the
+    contacts of its Opportunities, so it has to follow an Opportunity being
+    created, re-pointed at another Lead, or deleted."""
+    before = doc.get_doc_before_save()
+    leads = {lead_of(doc.name)} if method != "on_trash" else set()
+    if before and before.opportunity_from == "Lead":
+        leads.add(before.party_name)
+    if method == "on_trash" and doc.opportunity_from == "Lead":
+        leads.add(doc.party_name)
+
+    for lead in leads - {None}:
+        sync_contact_table(
+            "Lead", lead, exclude_opportunity=doc.name if method == "on_trash" else None
+        )</code></pre>
+    <div class="kv">
+      <div>Asymmetry in one place</div><div>A single function decides direction for both tables: an Opportunity returns one source, a Lead returns itself plus its Opportunities. Nothing else in the sync path changed.</div>
+      <div>De-duplication</div><div><code>get_contact_rows</code> keeps a <code>seen</code> set across sources, so a contact linked to both the Lead and one of its Opportunities appears once, attributed to the first source that has it.</div>
+      <div>The <code>on_trash</code> subtlety</div><div>Frappe runs <code>on_trash</code> <em>before</em> the row is gone, so the Opportunity being deleted is still returned by the sources query. <code>exclude_opportunity</code> removes it — the same trick the other mirrors use with <code>exclude</code>.</div>
+      <div>In practice</div><div>Frappe refuses an ordinary delete of an Opportunity that a Contact links to (<code>LinkExistsError</code>), so this path matters for a forced delete and for Opportunities with no contacts. The test reaches it with <code>force=True</code>.</div>
+      <div>Why a separate hook</div><div>Linking a contact fires a <em>Contact</em> event, which <code>affected_docs</code> already routes to the Lead. An Opportunity being created, re-pointed or deleted changes the roll-up with no contact involved, so it needs its own trigger.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Code · Create ▸ Opportunity on the Customer (step 26)</h3>
+    <div class="pathbar"><b>public/js/customer.js</b><span class="tag js">Client Script</span><span class="tag cfg">doctype_js</span></div>
+<pre><code>frappe.ui.form.on("Customer", {
+    refresh(frm) {
+        if (frm.is_new() || !frappe.model.can_create("Opportunity")) return;
+
+        frm.add_custom_button(
+            __("Opportunity"),
+            () =&gt;
+                frappe.model.open_mapped_doc({
+                    method: "erpnext.selling.doctype.customer.customer.make_opportunity",
+                    frm: frm,
+                }),
+            __("Create")
+        );
+    },
+});</code></pre>
+    <div class="kv">
+      <div>No server code</div><div>ERPNext's <code>make_opportunity</code> mapper already sets <code>opportunity_from = "Customer"</code> and <code>party_name</code>, and is already whitelisted. Only the entry point was missing.</div>
+      <div><code>make_methods</code> vs the Create menu</div><div>Core registers the mapper in <code>frm.make_methods</code>, which Frappe uses for the <strong>Connections tab "+"</strong> only. A Create-menu item is a separate <code>add_custom_button(..., __("Create"))</code> call — a frequent source of "the feature exists but nobody can find it".</div>
+      <div>Guards</div><div><code>frm.is_new()</code> because the mapper needs a saved source; <code>frappe.model.can_create</code> so the button does not appear to users who would only hit a permission error.</div>
+      <div>Deployment</div><div>A new file under <code>public/js</code> needs <code>bench build</code>; the new <code>doctype_js</code> entry needs the hooks cache cleared (<code>bench --site X clear-cache</code>).</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Code · the Won popup (client half of modification 2)</h3>
+    <div class="pathbar"><b>public/js/opportunity.js</b><span class="tag js">Client Script</span></div>
+<pre><code>frappe.ui.form.on("Opportunity", {
+    status(frm) {
+        // A new Opportunity has no tenders yet, so nothing to approve.
+        if (frm.doc.status !== WON || frm.is_new()) {
+            remember_status(frm);
+            return;
+        }
+        ask_which_tender_was_approved(frm);
+    },
+});
+
+// A field handler is not told the value before the change, and cancelling the
+// popup puts the Status back, so keep track of it by hand.
+function remember_status(frm) {
+    frm.__status_before_won = frm.doc.status;
+}
+
+function pick_approved_tender(frm, tenders) {
+    let picked = null;
+    const dialog = new frappe.ui.Dialog({
+        title: __("أي Project Tender تم اعتماده؟"),
+        fields: [{
+            fieldtype: "Select", fieldname: "project_tender",
+            label: "Project Tender", reqd: 1, default: tenders[0].name,
+            options: tenders.map((t) => ({ value: t.name, label: tender_label(t) })),
+        }, { fieldtype: "HTML", fieldname: "note", options: `...` }],
+        primary_action_label: __("اعتماد"),
+        primary_action(values) { picked = values.project_tender; dialog.hide(); },
+    });
+
+    // Dismissed (Esc, ✕) without choosing: the status goes back rather than
+    // standing as a Won with no approved tender behind it.
+    dialog.onhide = () => {
+        if (picked) {
+            frm.set_value(APPROVED_TENDER_FIELD, picked);
+            remember_status(frm);
+        } else {
+            frm.set_value("status", frm.__status_before_won);
+        }
+    };
+    dialog.show();
+}</code></pre>
+    <div class="kv">
+      <div>No previous value</div><div>Frappe field handlers receive only the new value. <code>frm.__status_before_won</code> is maintained in the controller's <code>refresh</code> and on every non-Won status change, which is what makes "cancel reverts" possible.</div>
+      <div><code>onhide</code>, not just <code>primary_action</code></div><div>Covers Esc, the ✕ and a click outside — every way the dialog can close without a decision.</div>
+      <div>Select with object options</div><div>Frappe's Select control accepts <code>{value, label}</code> pairs (<code>parse_option</code> in <code>select.js</code>), so the ID is stored while a rich label is displayed. Status values are left untranslated inside the label.</div>
+      <div>Write on save</div><div>The handler writes a <em>field</em>, never the database. The whole state change is one ordinary save — one transaction, one permission check, one timestamp.</div>
+    </div>
+  </div>
+</section>
+
+<section id="risks">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 08</div>
+    <h2>Risks and pitfalls when repeating these solutions</h2>
+    <p>Each item is a real failure mode of the patterns in this document — several were hit during development.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>1 · Bumping <code>modified</code> on the document that is currently saving</h4>
+    <p>A sync triggered from inside a document's own <code>on_update</code> writes a new <code>modified</code> to the database while the in-memory document returned to the client still holds the old one. The user's next save is then rejected on a document only they were editing.</p>
+    <p><strong>Mitigation:</strong> suppress the sync for that path (<code>doc.flags.skip_opportunity_sync</code>) and refresh the rows through the saving document instead (<code>refresh_tender_rows</code>). Pin it with a test that compares <code>doc.modified</code> to the database value.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>2 · Removing the <code>modified</code> bump as an "optimisation"</h4>
+    <p>It looks like pointless write traffic. It is the optimistic lock that stops a stale open form from posting its old child rows over newly synced ones — a silent data loss, invisible in logs.</p>
+    <p><strong>Mitigation:</strong> only drop the bump when the parent recomputes that table during its <em>own</em> <code>validate</code> (as the contacts table does). Otherwise keep it.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>3 · Adding a column to a mirror child DocType and forgetting the compare tuple</h4>
+    <p><code>rows_differ</code> only inspects the fields listed in <code>DETAIL_FIELDS</code> / <code>TENDER_ROW_FIELDS</code> / <code>CONTACT_ROW_FIELDS</code>. A new column that is populated by the query but missing from the tuple will never register as a change, so existing rows keep a stale value forever.</p>
+    <p><strong>Mitigation:</strong> three edits always go together — the child DocType JSON, the sync query, and the <code>…_FIELDS</code> tuple.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>4 · An automation without an "already done?" question</h4>
+    <p><code>on_update</code> fires on every save. Without <code>has_value_changed("status")</code> or an existence check, the Tendering automation would create a tender per save and the Won automation would re-run its Project/Sales Order creation.</p>
+    <p><strong>Mitigation:</strong> idempotence by database question (<code>frappe.db.exists("Project Tender", {ACTIVITY_FIELD: ...})</code>) plus a change guard. Test the double-save explicitly — <code>test_resaving_activity_does_not_create_another</code> does.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>5 · Child-table mirror rows blocking deletion</h4>
+    <p>A mirror row holds a Link to the record it mirrors, so deleting that record raises <code>LinkExistsError</code> and the record becomes undeletable.</p>
+    <p><strong>Mitigation:</strong> an <code>on_trash</code> handler that re-syncs with <code>exclude=&lt;name&gt;</code>. It must run <em>before</em> Frappe's link check, which <code>doc_events on_trash</code> does.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>6 · Changing what a mirror shows without changing what writes to it</h4>
+    <p>Modification 6 narrowed the Opportunity's contact query. Had the <em>New Contact</em> button not been changed too, it would have kept linking new contacts to the Lead (core leaves <code>frappe.dynamic_link</code> pointing at the party) — the contact would vanish from the table the user created it in, with no error anywhere.</p>
+    <p><strong>Mitigation:</strong> when a read changes, enumerate every writer: buttons, link-field queries, mappers, imports.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>7 · Trusting <code>mandatory_depends_on</code> or <code>read_only</code> as a rule</h4>
+    <p>In Frappe v14 <code>mandatory_depends_on</code> is evaluated on the form only. <code>read_only</code> is bypassed by whitelisted methods, Data Import and anything with <code>ignore_permissions</code>. Either one alone is a suggestion, not an invariant.</p>
+    <p><strong>Mitigation:</strong> pair every one of them with a server <code>validate</code>. This app does so three times.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>8 · <code>reqd</code> on a DocType that the framework also creates</h4>
+    <p>ERPNext inserts Leads itself from the website contact form, from incoming email and from appointments. Marking a field <code>reqd</code> breaks all of those paths with no user present to fix it.</p>
+    <p><strong>Mitigation:</strong> <code>mandatory_depends_on: "eval:1"</code> for the form plus a server check that exempts <code>flags.ignore_permissions</code> / <code>flags.ignore_mandatory</code> inserts — and complete those records before the data is needed (<code>convert_lead_to_customer</code> asks at the point of use).</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>9 · Hard-coding a Select's options in a Property Setter</h4>
+    <p>Writing the full option list as a literal silently deletes any option a future ERPNext release adds.</p>
+    <p><strong>Mitigation:</strong> read the original list from the <code>DocField</code> row (not the merged meta), append what is missing, write that back.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>10 · Assuming <code>insert_after</code> re-sorts an existing Custom Field</h4>
+    <p><code>idx</code> is computed only when the Custom Field is created. Editing <code>insert_after</code> later leaves <code>idx</code> stale — the form order does follow <code>insert_after</code> (via <code>Meta.sort_fields</code>), but two fields anchored to the same field with equal <code>idx</code> can order unpredictably.</p>
+    <p><strong>Mitigation:</strong> anchor each new field to the previous one in the chain, and declare them in that order in <code>CUSTOM_FIELDS</code>.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>11 · Letting a nested save's exception leave a split state — or swallowing it</h4>
+    <p>The Won flow saves another app's document inside <code>on_update</code>. If that save raises and the exception is caught, you get a Won Opportunity whose approved tender is not Won. If it propagates, the whole request rolls back.</p>
+    <p><strong>Mitigation:</strong> decide explicitly and write the decision down. Here propagation was chosen; the comment in <code>set_tender_won</code> says why.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>12 · Forgetting that each site is a separate database</h4>
+    <p>New code reaches every site immediately; new fields do not. A site that was not migrated runs the new hooks against a schema that lacks the new field, and the feature fails quietly (<code>doc.get(...)</code> is simply <code>None</code>).</p>
+    <p><strong>Mitigation:</strong> migrate and <code>clear-cache</code> every site in the deployment script, not just the current one. Guard cross-app code with <code>frappe.db.exists("DocType", ...)</code>.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>13 · Interpolating user text into <code>msgprint</code> or <code>add_comment</code></h4>
+    <p>Both render HTML. Today only system-generated names and <code>get_link_to_form</code> output are interpolated, so there is no issue — but a project name or a person's name dropped into the same string is stored XSS in the timeline.</p>
+    <p><strong>Mitigation:</strong> <code>frappe.utils.escape_html</code> on anything a user typed, server and client alike.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>14 · Writing Arabic (or any localised) text as the source string without <code>_()</code></h4>
+    <p>The text then cannot be overridden per site or per user, and a bilingual site is stuck with one language.</p>
+    <p><strong>Mitigation:</strong> keep the string inside <code>_()</code> even when it is already in the target language, as this app does. Remember that <code>_()</code> resolves against the <em>user's</em> language — which is exactly why a <code>translations/ar.csv</code> would not have worked here: every user on this bench is set to <code>en</code>.</p>
+  </div>
+</section>
+
+<section id="tests">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 09</div>
+    <h2>Test coverage</h2>
+    <p>90 tests in two files, 1,080 lines. Each class extends <code>FrappeTestCase</code>, which wraps the class in a transaction and rolls it back, so tests create their own Leads, Opportunities, activities and tenders and leave nothing behind.</p>
+  </div>
+
+  <div class="panel">
+    <div class="chart-wrap" style="height:330px"><canvas id="chartTests" aria-label="Horizontal bar chart of test counts per test class" role="img"></canvas></div>
+    <details class="tableview">
+      <summary>Show the numbers as a table</summary>
+      <div class="table-box" style="box-shadow:none;margin-top:10px">
+        <table>
+          <thead><tr><th>Test class</th><th style="text-align:right">Tests</th><th>Covers</th></tr></thead>
+          <tbody>
+            <tr><td><code>TestLeadsActivity</code></td><td style="text-align:right">21</td><td>Qualification rules, mirror table, re-linking, deletes, stale-form rejection, backfill idempotence</td></tr>
+            <tr><td><code>TestTendering</code></td><td style="text-align:right">12</td><td>Tender creation, one-per-activity, Submitted → activity Done, table order, the creation message</td></tr>
+            <tr><td><code>TestApprovedTender</code></td><td style="text-align:right">9</td><td>Won → approved tender, other tenders untouched, re-save, wrong-Opportunity rejection, popup list</td></tr>
+            <tr><td><code>TestContactsTable</code></td><td style="text-align:right">15</td><td>Opportunity shows only its own; the Lead rolls up its Opportunities'; re-pointing and deleting an Opportunity; de-duplication; ordering; backfill cleanup</td></tr>
+            <tr><td><code>TestRegistrationAttachment</code></td><td style="text-align:right">8</td><td>Every path into the attachment rule, including file-less rows and <code>mandatory_depends_on</code></td></tr>
+            <tr><td><code>TestOpportunityActivities</code></td><td style="text-align:right">8</td><td>Opportunity activities separate from the Lead's, dashboard counts, layout</td></tr>
+            <tr><td><code>TestLeadToCustomer</code></td><td style="text-align:right">6</td><td>Registration Done → Customer, group/territory inheritance, convert-once</td></tr>
+            <tr><td><code>TestSubmittedRequirements</code></td><td style="text-align:right">5</td><td>Each of the three cost tables individually, plus other statuses needing none</td></tr>
+            <tr><td><code>TestLeadLayout</code></td><td style="text-align:right">3</td><td>Field order, tab contents, section properties</td></tr>
+            <tr><td><code>TestLeadCustomerFields</code></td><td style="text-align:right">3</td><td>Mandatory behaviour for users vs ERPNext's own inserts</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Techniques worth reusing</h3>
+    <div class="kv">
+      <div><code>customer_defaults()</code></div><div>A context manager that patches <code>frappe.db.get_default</code> instead of writing real defaults — a real default is cached in Redis and would survive the transaction rollback, leaking into later tests.</div>
+      <div><code>test_ignore</code></div><div>Module-level list that stops the runner committing ERPNext's global sample records for DocTypes the tests create themselves.</div>
+      <div>Thin fixture rows</div><div><code>fill_cost_tables</code> appends empty rows and sets <code>flags.ignore_mandatory</code>, because standing up a real <code>Tender</code> with its BOQ would test the <code>contracting</code> app rather than this rule. Where that artifice would distort the result, the test writes the status with <code>frappe.db.set_value</code> instead.</div>
+      <div>Message assertions</div><div>Tests assert both the Arabic fragment and the English field names in the same message, so neither half can regress.</div>
+      <div>Negative pinning</div><div><code>test_submitted_tender_marks_only_its_activity_done</code> asserts the Opportunity is <em>not</em> moved on — the removed automation of modification 1 cannot come back unnoticed.</div>
+    </div>
+<pre class="sm" style="margin-top:14px"><code>bench --site &lt;test-site&gt; run-tests --app custom_crm_updates
+bench --site &lt;test-site&gt; run-tests --module custom_crm_updates.tests.test_crm_automation</code></pre>
+    <div class="callout">
+      <div class="ic">Known failure</div>
+      <p><strong>89 of 90 pass.</strong> <code>TestLeadCustomerFields.test_mandatory_when_saved_by_a_user</code> fails on this bench, and fails identically with the Phase 2 work stashed — it is pre-existing. Cause: ERPNext's <code>before_tests</code> writes user defaults for Customer Group and Territory, and <code>Document.insert</code> fills empty fields from the defaults of a new doc, so the mandatory error never fires inside the runner. The rule works outside it. Run tests on a dedicated site: on a live site ERPNext's sample records are committed permanently.</p>
+    </div>
+  </div>
+</section>
+
+<section id="assumptions">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 10</div>
+    <h2>Assumptions and provenance</h2>
+    <p>What in this document is measured, what is inferred.</p>
+  </div>
+  <div class="panel">
+    <div class="kv">
+      <div>Measured</div><div>Custom Field, Property Setter and DocType lists were read from <code>site1.local</code>'s database. Line counts come from <code>wc -l</code> on the working tree. Test counts come from parsing the test files. Code excerpts are copied from the current source.</div>
+      <div>Chronology</div><div>Inferred. This app has two commits (7 Oct 2026), so the 24-step order comes from the project's own code guide, which records the build order, plus the two-phase timeline in <code>docs/custom-crm-updates.html</code>. Relative order is reliable; exact times within a day are not.</div>
+      <div>Rationale</div><div>Where a "why" was not written in a comment or commit message, it is inferred from the code and from ERPNext conventions. The inferences are: that the HTML-field first attempt at the activities list was replaced for grid features (supported by <code>OBSOLETE_CUSTOM_FIELDS</code>); that company Leads were being given invented person names (motivates step 1); and that duplicate manual tenders motivated the confirmation message of modification 3.</div>
+      <div>Framework behaviour</div><div>Statements about Frappe internals were verified against the installed v14 source in <code>apps/frappe</code>: <code>Document._save</code> ordering, <code>CustomField.validate</code>'s <code>idx</code> rule, <code>Meta.sort_fields</code>, <code>save.js</code>'s <code>check_mandatory</code> running after the <code>validate</code> trigger, <code>frappe.model.has_value</code> handling Table fields, and <code>select.js</code>'s <code>parse_option</code>. They may differ in v15.</div>
+      <div>Not covered</div><div>The <code>contracting</code> app's internals beyond the fields and statuses this app touches; ERPNext's own CRM features that were left unchanged; and anything about <code>friendmix.local</code> beyond its existence — only <code>site1.local</code> was inspected.</div>
+    </div>
+  </div>
+</section>
+
+<footer>CRM Customizations · Technical Reference · <code>apps/custom_crm_updates</code> · Frappe/ERPNext v14 · charts by Chart.js (CDN), all other CSS and JavaScript embedded in this file</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  document.getElementById("themeToggle").addEventListener("click", function () {
+    var dark = getComputedStyle(root).getPropertyValue("--plane").trim() === "#0d0d0d";
+    root.setAttribute("data-theme", dark ? "light" : "dark");
+    renderAll();
+  });
+
+  function token(n) { return getComputedStyle(root).getPropertyValue(n).trim(); }
+
+  // Direct value labels at the data end: the relief rule, and easier to read
+  // than making the reader trace a bar back to the axis.
+  var valueLabels = {
+    id: "valueLabels",
+    afterDatasetsDraw: function (c) {
+      var ctx = c.ctx;
+      ctx.save();
+      ctx.fillStyle = token("--ink-2");
+      ctx.font = '600 12px system-ui, -apple-system, "Segoe UI", sans-serif';
+      ctx.textBaseline = "middle";
+      c.getDatasetMeta(0).data.forEach(function (bar, i) {
+        ctx.fillText(String(c.data.datasets[0].data[i]), bar.x + 8, bar.y);
+      });
+      ctx.restore();
+    }
+  };
+
+  var CHARTS = {
+    chartLoc: {
+      labels: ["project_tender.py", "lead.py", "hooks.py", "contact.py", "leads_activity.py", "opportunity.py", "mirror_table.py"],
+      data: [354, 268, 254, 239, 220, 98, 33],
+      label: "Lines"
+    },
+    chartTests: {
+      labels: ["TestLeadsActivity", "TestContactsTable", "TestTendering", "TestApprovedTender",
+               "TestRegistrationAttachment", "TestOpportunityActivities", "TestLeadToCustomer",
+               "TestSubmittedRequirements", "TestLeadLayout", "TestLeadCustomerFields"],
+      data: [21, 15, 12, 9, 8, 8, 6, 5, 3, 3],
+      label: "Tests"
+    }
+  };
+  var live = {};
+
+  function renderOne(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (live[id]) live[id].destroy();
+    var spec = CHARTS[id];
+    live[id] = new Chart(el, {
+      type: "bar",
+      plugins: [valueLabels],
+      data: {
+        labels: spec.labels,
+        datasets: [{
+          label: spec.label,
+          data: spec.data,
+          backgroundColor: token("--s1"),
+          borderRadius: { topRight: 4, bottomRight: 4, topLeft: 0, bottomLeft: 0 },
+          borderSkipped: false,
+          barPercentage: 0.62,
+          categoryPercentage: 0.84
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { right: 38 } },
+        plugins: {
+          legend: { display: false },   // single series — the heading names it
+          tooltip: {
+            backgroundColor: token("--surface"), titleColor: token("--ink"),
+            bodyColor: token("--ink-2"), borderColor: token("--line"),
+            borderWidth: 1, displayColors: false, padding: 10
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            border: { color: token("--baseline") },
+            grid: { color: token("--grid"), drawTicks: false },
+            ticks: { color: token("--muted"), font: { size: 11 }, precision: 0 }
+          },
+          y: {
+            border: { color: token("--baseline") },
+            grid: { display: false },
+            ticks: { color: token("--ink-2"), font: { size: 11.5 } }
+          }
+        }
+      }
+    });
+  }
+
+  function renderAll() { Object.keys(CHARTS).forEach(renderOne); }
+
+  if (typeof Chart === "undefined") {
+    // Offline or CDN blocked: the table views are the charts.
+    document.querySelectorAll(".chart-wrap").forEach(function (w) { w.style.display = "none"; });
+    document.querySelectorAll("details.tableview").forEach(function (d) { d.open = true; });
+  } else {
+    renderAll();
+  }
+})();
+</script>
+</body>
+</html>
