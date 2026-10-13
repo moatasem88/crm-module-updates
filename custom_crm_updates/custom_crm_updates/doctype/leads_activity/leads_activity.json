@@ -2,7 +2,7 @@
  "actions": [],
  "allow_import": 1,
  "autoname": "CRM-ACT-.YYYY.-.#####",
- "creation": "2026-09-29 00:00:00.000000",
+ "creation": "2026-09-29 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -103,12 +103,12 @@
    "fieldname": "attachments",
    "fieldtype": "Table",
    "label": "Attachments",
-   "mandatory_depends_on": "eval:doc.activity_type==\"Registration\"",
+   "mandatory_depends_on": "eval:doc.activity_type==\"Registration\" || [\"Lead\"].includes(doc.link_type)",
    "options": "Leads Activity Attachment"
   }
  ],
  "links": [],
- "modified": "2026-10-07 11:10:00.000000",
+ "modified": "2026-10-13 13:13:51.632387",
  "modified_by": "Administrator",
  "module": "Custom CRM Updates",
  "name": "Leads Activity",

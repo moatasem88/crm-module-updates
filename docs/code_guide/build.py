@@ -20,11 +20,14 @@ REF = [
 	("overrides/lead.py", "clear_person_fields", "Lead before_validate", "Empties person fields of a company Lead and sets Full Name to the company name."),
 	("overrides/opportunity.py", "apply_opportunity_customizations", "after_migrate", "Creates Opportunity custom fields, adds Tendering/Won, hides contact_html, applies the field order."),
 	("overrides/opportunity.py", "apply_field_order", "called by the above", "Rebuilds the Opportunity's field_order: the Opportunity Value section above Organization."),
+	("overrides/opportunity.py", "set_party_links", "Opportunity validate", "Mirrors the party into a plain Link field per type, for the Connections tab."),
+	("overrides/opportunity.py", "backfill_party_links", "after_migrate", "Fills those mirrors for Opportunities that predate them."),
 	("overrides/opportunity.py", "set_title", "Opportunity validate", "Makes the Opportunity Name the Opportunity's title."),
 	("overrides/opportunity.py", "validate_attachments", "Opportunity validate", "Refuses an Opportunity whose Attachments table holds no file."),
 	("overrides/opportunity.py", "calculate_contributions", "Opportunity validate", "Works out every breakdown row's Final Value from the Targeted Amount."),
 	("overrides/opportunity.py", "validate_activity_source", "Leads Activity validate", "Refuses an activity on an Opportunity that has no attachment saved."),
-	("overrides/opportunity.py", "get_dashboard_data", "Opportunity Connections tab", "Adds Leads Activity to the Opportunity's Connections."),
+	("overrides/opportunity.py", "get_dashboard_data", "Opportunity Connections tab", "Adds Leads Activity, the client (Lead/Customer/Prospect) and Project Tender to Connections."),
+	("overrides/customer.py", "apply_customer_customizations", "after_migrate", "Adds the Customer's Contacts table and hides core's contact list."),
 	("overrides/project_tender.py", "apply_project_tender_customizations", "after_migrate", "Adds the Opportunity and Leads Activity links to Project Tender (if contracting is installed)."),
 	("overrides/project_tender.py", "create_project_tender_for_activity", "Tendering activity saved", "Creates the activity's Project Tender (once), sets the Opportunity to Tendering and tells the user."),
 	("overrides/project_tender.py", "get_opportunity_customer", "called by the above", "Finds or creates the Customer for the tender's Client."),
@@ -48,16 +51,17 @@ REF = [
 	("overrides/contact.py", "refresh_own_table", "Lead / Opportunity validate", "Recomputes the Contacts table on the record being saved."),
 	("overrides/contact.py", "refresh_after_insert", "Lead after_insert", "Adds the auto-created contact of a new Lead to its table."),
 	("overrides/contact.py", "contact_links", "called by contact events", "The (DocType, name) pairs a Contact links to."),
-	("overrides/contact.py", "lead_of", "called by affected_docs", "The Lead an Opportunity was made from, if any."),
-	("overrides/contact.py", "affected_docs", "called by contact events", "Leads/Opportunities whose table a contact change affects, plus each Opportunity's Lead."),
-	("overrides/contact.py", "refresh_party_lead", "Opportunity saved / deleted", "Keeps the Lead's rolled-up contacts level with its Opportunities."),
+	("overrides/contact.py", "lead_of", "called by affected_docs", "The Lead an Opportunity or a Customer was made from, read from the database."),
+	("overrides/contact.py", "lead_in", "called by refresh_party_lead", "The same Lead, read from a document in hand (before a save, or while deleting)."),
+	("overrides/contact.py", "affected_docs", "called by contact events", "Leads/Opportunities/Customers whose table a contact change affects, plus the Lead behind each."),
+	("overrides/contact.py", "refresh_party_lead", "Opportunity/Customer saved or deleted", "Keeps the Lead's rolled-up contacts level with its Opportunities and its Customer."),
 	("overrides/contact.py", "on_contact_update", "Contact saved", "Refreshes every table the contact is or was in."),
 	("overrides/contact.py", "on_contact_trash", "Contact deleted", "Removes the contact's rows first."),
 	("overrides/contact.py", "backfill_contact_tables", "after_migrate", "Fills the Contacts tables for existing contacts."),
 	("mirror_table.py", "rows_differ", "called by set_mirror_rows", "True if the new rows differ from the stored ones."),
 	("mirror_table.py", "set_mirror_rows", "every table sync", "Writes a read-only table's rows directly; optionally bumps modified and reloads open forms."),
 	("custom_crm_updates/doctype/leads_activity/leads_activity.py", "LeadsActivity.validate", "activity saved", "Runs the activity's own rules."),
-	("custom_crm_updates/doctype/leads_activity/leads_activity.py", "LeadsActivity.validate_registration_attachment", "activity validate", "Refuses a Registration activity with an empty Attachments table."),
+	("custom_crm_updates/doctype/leads_activity/leads_activity.py", "LeadsActivity.validate_attachment", "activity validate", "Refuses an activity on a Lead/Opportunity, or any Registration, with an empty Attachments table."),
 	("custom_crm_updates/doctype/leads_activity/leads_activity.py", "LeadsActivity.on_update", "activity saved", "Syncs tables; Tendering → tender; qualification rules; Registration Done → Customer."),
 	("custom_crm_updates/doctype/leads_activity/leads_activity.py", "LeadsActivity.on_trash", "activity deleted", "Removes the activity's rows first."),
 	("custom_crm_updates/doctype/leads_activity/leads_activity.py", "LeadsActivity.linked_docs", "called by the above", "Current and previous records the activity is linked to."),
@@ -84,7 +88,8 @@ JS_REF = [
 	("custom_crm_updates/doctype/leads_activity/leads_activity_list.js", "get_indicator", "Leads Activity list", "Colours each row's status pill."),
 ]
 SOURCES = [
-	"overrides/lead.py", "overrides/opportunity.py", "overrides/project_tender.py", "overrides/contact.py",
+	"overrides/lead.py", "overrides/opportunity.py", "overrides/customer.py",
+	"overrides/project_tender.py", "overrides/contact.py",
 	"mirror_table.py", "custom_crm_updates/doctype/leads_activity/leads_activity.py",
 ]
 
@@ -102,10 +107,12 @@ RECIPES = """
       <tr><td>Name tenders differently</td><td><code>project_name</code> in <code>create_project_tender_for_activity</code>.</td></tr>
       <tr><td>Stop setting the Opportunity to Tendering</td><td>Remove the <code>db_set("status", "Tendering")</code> lines in <code>create_project_tender_for_activity</code>.</td></tr>
       <tr><td>Require something else before Submitted</td><td>Add the fieldname to <code>SUBMITTED_REQUIRED_TABLES</code> in <code>overrides/project_tender.py</code>.</td></tr>
-      <tr><td>Require attachments for another activity type</td><td><code>LeadsActivity.validate_registration_attachment</code> in <code>leads_activity.py</code>.</td></tr>
+      <tr><td>Change which activities need an attachment</td><td><code>ATTACHMENT_LINK_TYPES</code> / <code>LeadsActivity.validate_attachment</code> in <code>leads_activity.py</code>, and <code>mandatory_depends_on</code> of <code>attachments</code> in <code>leads_activity.json</code>.</td></tr>
+      <tr><td>Show the Contacts table on another DocType</td><td>Add <code>contact_table_fields(...)</code> to its custom fields, add it to <code>TABLE_DOCTYPES</code> (and <code>ROLLED_UP</code> if a Lead should roll it up) in <code>overrides/contact.py</code>, and wire its <code>validate</code> to <code>refresh_own_table</code>.</td></tr>
       <tr><td>Add a trade to the Opportunity Breakdown (e.g. hvac)</td><td>Add it to <code>options</code> of <code>type</code> in <code>opportunity_contribution.json</code>, then migrate.</td></tr>
       <tr><td>Change how Final Value is worked out</td><td><code>calculate_contributions</code> in <code>overrides/opportunity.py</code> <em>and</em> <code>calculate_contribution</code> in <code>public/js/opportunity.js</code> — the two must agree.</td></tr>
       <tr><td>Stop requiring an Opportunity attachment</td><td>Remove the <code>validate_attachments</code> (and <code>validate_activity_source</code>) entries from <code>doc_events</code> in <code>hooks.py</code>, and the <code>validate</code> handler from <code>public/js/opportunity.js</code>; migrate and <code>bench build</code>.</td></tr>
+      <tr><td>Show another DocType in the Opportunity's Connections</td><td>Add it to <code>transactions</code> in <code>get_dashboard_data</code> (<code>overrides/opportunity.py</code>), with a <code>non_standard_fieldnames</code> entry if its link field isn't called <code>opportunity</code>.</td></tr>
       <tr><td>Require attachments on the Lead too</td><td>Add the Lead's table to <code>ACTIVITY_SOURCE_TABLES</code> in <code>overrides/opportunity.py</code> and to <code>ATTACHMENT_TABLES</code> in <code>public/js/leads_activity_section.js</code>.</td></tr>
       <tr><td>Show other columns in the Won popup</td><td><code>get_opportunity_tenders</code> (fields) and <code>tender_label</code> in <code>public/js/opportunity.js</code>.</td></tr>
       <tr><td>Make Customer Group optional again</td><td>Remove the <code>CUSTOMER_FIELDS</code> line from <code>MANDATORY_DEPENDS_ON</code> and the <code>validate_customer_fields</code> hook; migrate.</td></tr>

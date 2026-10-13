@@ -47,11 +47,12 @@ def make_activity(lead, **kwargs):
 		"date": nowdate(),
 	}
 	values.update(kwargs)
-	# A Registration activity cannot be saved without one (see
-	# TestRegistrationAttachment); every other test that uses one is about
-	# what it does to the Lead, not about the attachment.
-	if values["activity_type"] == "Registration" and "attachments" not in values:
-		values["attachments"] = [{"attachment": "/files/_test_registration.pdf"}]
+	# An activity on a Lead or an Opportunity cannot be saved without one, and
+	# neither can a Registration (see TestActivityAttachment); every other
+	# test that uses an activity is about what it does to the Lead, not about
+	# the attachment.
+	if "attachments" not in values:
+		values["attachments"] = [{"attachment": "/files/_test_activity.pdf"}]
 	return frappe.get_doc(values).insert()
 
 
@@ -204,7 +205,8 @@ class TestLeadsActivity(FrappeTestCase):
 			("Meeting", "Planned", "Administrator", 2),
 		)
 		self.assertEqual(str(rows[0].date), "2026-01-01")
-		self.assertEqual(rows[0].attachments, 0)
+		# the one every activity on a Lead needs
+		self.assertEqual(rows[0].attachments, 1)
 
 	def test_back_dated_activity_is_still_appended_at_the_bottom(self):
 		# the order is by creation, so a date in the past does not jump the row
@@ -220,7 +222,8 @@ class TestLeadsActivity(FrappeTestCase):
 		activity.save()
 
 		(row,) = table_rows(self.lead)
-		self.assertEqual((row.status, row.attachments), ("Waiting Reply", 1))
+		# the one it was created with, plus the one just added
+		self.assertEqual((row.status, row.attachments), ("Waiting Reply", 2))
 
 	def test_repointed_activity_moves_between_lead_tables(self):
 		activity = make_activity(self.lead)
@@ -279,9 +282,10 @@ class TestLeadsActivity(FrappeTestCase):
 		self.assertEqual(activity_count["count"], 2)
 
 
-class TestRegistrationAttachment(FrappeTestCase):
-	"""A Registration activity needs at least one attachment
-	(LeadsActivity.validate_registration_attachment)."""
+class TestActivityAttachment(FrappeTestCase):
+	"""Every activity on a Lead or an Opportunity needs at least one
+	attachment, and so does a Registration whatever it is linked to
+	(LeadsActivity.validate_attachment)."""
 
 	def setUp(self):
 		self.lead = make_lead().name
@@ -311,24 +315,73 @@ class TestRegistrationAttachment(FrappeTestCase):
 		self.assertIn("مرفقات", str(error.exception))
 
 	def test_the_form_marks_the_table_mandatory(self):
-		# the red asterisk and Frappe's own form check follow the Type
+		# the red asterisk and Frappe's own form check follow the Type and the
+		# Link Type
 		field = frappe.get_meta("Leads Activity").get_field("attachments")
-		self.assertEqual(field.mandatory_depends_on, 'eval:doc.activity_type=="Registration"')
+		self.assertEqual(
+			field.mandatory_depends_on,
+			'eval:doc.activity_type=="Registration" || ["Lead", "Opportunity"].includes(doc.link_type)',
+		)
 
-	def test_other_types_need_none(self):
+	def test_every_type_on_a_lead_needs_one(self):
 		for activity_type in ("Call", "Meeting", "Site Visit", "Tendering", "Other"):
-			self.assertTrue(make_activity(self.lead, activity_type=activity_type, attachments=[]).name)
+			with self.assertRaises(frappe.ValidationError) as error:
+				make_activity(self.lead, activity_type=activity_type, attachments=[])
 
-	def test_rule_holds_for_every_link_type(self):
+			message = str(error.exception)
+			self.assertIn("مرفقات", message)
+			# the message names what it is linked to, not the type
+			self.assertIn("Lead", message)
+
+	def test_every_type_on_an_opportunity_needs_one(self):
+		opportunity = make_opportunity_from(self.lead).name
+		for activity_type in ("Call", "Meeting", "Other"):
+			with self.assertRaises(frappe.ValidationError) as error:
+				make_activity(
+					opportunity, link_type="Opportunity", activity_type=activity_type, attachments=[]
+				)
+			self.assertIn("Opportunity", str(error.exception))
+
+	def test_every_type_on_a_lead_saves_with_one(self):
+		for activity_type in ("Call", "Meeting", "Site Visit", "Other"):
+			activity = make_activity(self.lead, activity_type=activity_type)
+			self.assertEqual(len(activity.attachments), 1)
+
+	def test_a_prospect_only_needs_one_for_a_registration(self):
 		prospect = frappe.get_doc(
 			{"doctype": "Prospect", "company_name": "_Test Activity Prospect " + frappe.generate_hash(length=6)}
 		).insert()
+
+		# a Prospect has no attachments table of its own to follow up on
+		for activity_type in ("Call", "Meeting", "Other"):
+			activity = make_activity(
+				prospect.name, link_type="Prospect", activity_type=activity_type, attachments=[]
+			)
+			self.assertEqual(activity.attachments, [])
+
 		with self.assertRaises(frappe.ValidationError):
 			make_activity(prospect.name, link_type="Prospect", activity_type="Registration", attachments=[])
 
 	def test_becoming_a_registration_needs_one_too(self):
-		activity = make_activity(self.lead, activity_type="Call")
+		# on a Prospect, which is the only link type that can hold an activity
+		# with no attachment at all
+		prospect = frappe.get_doc(
+			{"doctype": "Prospect", "company_name": "_Test Activity Prospect " + frappe.generate_hash(length=6)}
+		).insert()
+		activity = make_activity(prospect.name, link_type="Prospect", activity_type="Call", attachments=[])
+
 		activity.activity_type = "Registration"
+		with self.assertRaises(frappe.ValidationError):
+			activity.save()
+
+	def test_being_moved_to_a_lead_needs_one_too(self):
+		prospect = frappe.get_doc(
+			{"doctype": "Prospect", "company_name": "_Test Activity Prospect " + frappe.generate_hash(length=6)}
+		).insert()
+		activity = make_activity(prospect.name, link_type="Prospect", activity_type="Call", attachments=[])
+
+		activity.link_type = "Lead"
+		activity.link_name = self.lead
 		with self.assertRaises(frappe.ValidationError):
 			activity.save()
 

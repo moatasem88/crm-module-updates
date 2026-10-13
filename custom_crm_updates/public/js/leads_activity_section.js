@@ -1,6 +1,7 @@
-// Shared by lead.js and opportunity.js (loaded ahead of them via doctype_js):
-// buttons for the read-only tables those forms get from custom_crm_updates —
-// custom_leads_activities (Activities tab) and custom_contacts (Contacts).
+// Shared by lead.js, opportunity.js and customer.js (loaded ahead of them via
+// doctype_js): buttons for the read-only tables those forms get from
+// custom_crm_updates — custom_leads_activities (Activities tab) and
+// custom_contacts (Contacts). The Customer has only the contacts table.
 
 frappe.provide("custom_crm_updates");
 

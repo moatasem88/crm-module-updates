@@ -9,9 +9,12 @@ Activities linked to a Lead drive its Qualification Status:
 - an activity reaching status "Done" marks the Lead "Qualified";
 - a Registration activity reaching "Done" also converts the Lead to a Customer.
 
-A Registration activity cannot be saved without at least one attachment: it is
-the activity that registers the client, and its paperwork is what the Customer
-is created from.
+An activity on a Lead or an Opportunity cannot be saved without at least one
+attachment, whatever its type: what the CRM follows a client up with is its
+paperwork, so an activity with nothing on file is not a record of anything. A
+Registration activity needs one whatever it is linked to, because it is the
+activity that registers the client and its paperwork is what the Customer is
+created from.
 
 A Tendering activity on an Opportunity creates a Project Tender for it (one per
 activity; see custom_crm_updates/overrides/project_tender.py).
@@ -36,30 +39,48 @@ ACTIVITY_TABLE = "custom_leads_activities"
 TABLE_DOCTYPES = ("Lead", "Opportunity")
 DETAIL_FIELDS = ("activity", "activity_type", "date", "status", "assigned_to", "attachments")
 
+REGISTRATION = "Registration"
+# Link types whose activities always need an attachment, whatever their type.
+ATTACHMENT_LINK_TYPES = ("Lead", "Opportunity")
+
 
 class LeadsActivity(Document):
 	def validate(self):
-		self.validate_registration_attachment()
+		self.validate_attachment()
 
-	def validate_registration_attachment(self):
-		"""A Registration is what converts the Lead into a Customer, so the
-		document it was registered with has to be on file. Enforced here
-		rather than with `reqd` on the table: the rule is per activity type,
-		and it has to hold for the API and Data Import too. The form shows the
-		same rule through the table's mandatory_depends_on and repeats this
-		message before saving (leads_activity.js).
+	def validate_attachment(self):
+		"""An activity on a Lead or an Opportunity needs at least one
+		attachment, whatever its type: what the CRM follows a client up with is
+		its paperwork. A Registration needs one whatever it is linked to (a
+		Prospect included), because it is what converts the Lead into a
+		Customer, so the document it was registered with has to be on file.
+
+		Enforced here rather than with `reqd` on the table: the rule depends on
+		other fields, and it has to hold for the API and Data Import too. The
+		form shows the same rule through the table's mandatory_depends_on and
+		repeats these messages before saving (leads_activity.js).
 
 		A row with no file is not an attachment: counting it would hand the
-		user Frappe's generic "mandatory field in row 1" error instead of this
-		one, which says what is actually needed."""
-		if self.activity_type != "Registration":
+		user Frappe's generic "mandatory field in row 1" error instead of one
+		that says what is actually needed."""
+		registration = self.activity_type == REGISTRATION
+		if not registration and self.link_type not in ATTACHMENT_LINK_TYPES:
 			return
 
-		if not [row for row in self.attachments if row.attachment]:
-			frappe.throw(
-				_("لا يمكن حفظ Activity من النوع Registration بدون مرفقات. أرفق ملفاً واحداً على الأقل في جدول Attachments."),
-				title=_("مرفق مطلوب"),
+		if [row for row in self.attachments if row.attachment]:
+			return
+
+		# field and DocType names stay in English, as in the system
+		if registration:
+			message = _(
+				"لا يمكن حفظ Activity من النوع Registration بدون مرفقات. أرفق ملفاً واحداً على الأقل في جدول Attachments."
 			)
+		else:
+			message = _(
+				"لا يمكن حفظ Activity على {0} بدون مرفقات. أرفق ملفاً واحداً على الأقل في جدول Attachments."
+			).format(self.link_type)
+
+		frappe.throw(message, title=_("مرفق مطلوب"))
 
 	def on_update(self):
 		# None on insert: get_doc_before_save is only loaded for existing docs

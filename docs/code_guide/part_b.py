@@ -88,30 +88,35 @@ def steps_b():
 		])))
 
 	s.append(step(14, "s-contacts", "Contacts shown as a table",
-		"On Lead and Opportunity, ERPNext's contact list is replaced by a read-only Contacts table with a New Contact button.",
-		["overrides/contact.py", "Leads Contact Detail (child DocType)", "hooks.py → Lead, Opportunity, Contact events"],
-		why("Contacts are linked to records through rows in the Contact's <b>links</b> table (Dynamic Links). An Opportunity lists the contacts linked to <em>it</em> and only those, so a deal's contact list is not diluted by the Lead's; a Lead lists its own <em>and</em> those of every Opportunity made from it, so the Lead stays the full picture of who is involved. The table is a mirror of those links, kept current from two directions: a Lead/Opportunity recomputes its own table whenever <em>it</em> is saved, and a Contact pushes its rows to every record it is (or was) linked to whenever <em>the Contact</em> is saved or deleted. Because the record recomputes on its own save, a stale form cannot leave wrong rows, so this table does not need the modified-timestamp bump.")
+		"On Lead, Opportunity and Customer, ERPNext's contact list is replaced by a read-only Contacts table with a New Contact button.",
+		["overrides/contact.py", "overrides/customer.py", "Leads Contact Detail (child DocType)", "hooks.py → Lead, Opportunity, Customer, Contact events"],
+		why("Contacts are linked to records through rows in the Contact's <b>links</b> table (Dynamic Links). An Opportunity lists the contacts linked to <em>it</em> and only those, so a deal's contact list is not diluted by the Lead's, and a Customer likewise lists only its own, so a contact added to the client after the sale stays out of the deal it came from. A Lead lists its own <em>and</em> those of every Opportunity made from it <em>and</em> those of the Customer it became, so the Lead stays the full picture of who is involved. The table is a mirror of those links, kept current from two directions: the record recomputes its own table whenever <em>it</em> is saved, and a Contact pushes its rows to every record it is (or was) linked to whenever <em>the Contact</em> is saved or deleted. Because the record recomputes on its own save, a stale form cannot leave wrong rows, so this table does not need the modified-timestamp bump.")
 		+ py(CT, "contact_table_fields", "contact_sources", "get_contact_rows", "sync_contact_table")
 		+ explain([
 			"<code>filters=[[\"Dynamic Link\", \"link_doctype\", \"=\", …], …]</code> is a child-table filter: Contacts that have a link row pointing at the given record.",
-			"<code>contact_sources</code> decides where the rows come from: one source for an Opportunity, and for a Lead itself plus each of its Opportunities (oldest first). A contact linked to both is listed once, under the first source that has it.",
+			"<code>contact_sources</code> decides where the rows come from: one source for an Opportunity and for a Customer, and for a Lead itself plus each of its Opportunities (oldest first) and then its Customer. A contact linked to more than one is listed once, under the first source that has it.",
+			"A Customer counts as the Lead's whether it carries <b>From Lead</b> or <b>From Opportunity</b> — the two ways ERPNext records the same conversion — so the roll-up holds however the Customer was created.",
+			"ERPNext's own Lead → Customer conversion links the Lead's contacts to the Customer as well, so those are the Customer's contacts too and show on both. On the Lead each one is still listed once, under the Lead.",
 			"Ascending by creation, like every table here: oldest at the top, a new contact appended at the bottom. The primary contact is shown by its own column rather than sorted to the top. <code>linked_via</code> names the record each row came from.",
 			"<code>order_by=\"`tabContact`.…\"</code> names the table explicitly because the Dynamic Link join also has a <code>creation</code> column.",
 		])
-		+ py(CT, "refresh_own_table", "refresh_after_insert", "contact_links", "lead_of", "affected_docs", "refresh_party_lead", "on_contact_update", "on_contact_trash", "backfill_contact_tables")
+		+ py(CT, "refresh_own_table", "refresh_after_insert", "contact_links", "lead_of", "lead_in", "affected_docs", "refresh_party_lead", "on_contact_update", "on_contact_trash", "backfill_contact_tables")
 		+ explain([
-			"<code>refresh_own_table</code> (Lead and Opportunity <b>validate</b>) sets the rows on the document being saved, so they are written with it.",
+			"<code>refresh_own_table</code> (Lead, Opportunity and Customer <b>validate</b>) sets the rows on the document being saved, so they are written with it.",
 			"<code>refresh_after_insert</code>: ERPNext links a new Lead's auto-created contact in <em>its</em> after_insert, after validate has run, so we refresh once more and write the rows.",
-			"<code>affected_docs</code> turns a contact's links into the records to update: the Leads and Opportunities it is linked to, plus the Lead behind each of those Opportunities, which rolls its contacts up.",
-			"<code>refresh_party_lead</code> (Opportunity <b>on_update</b> / <b>on_trash</b>) keeps the Lead level when an Opportunity appears, is re-pointed at another Lead, or is deleted - the contact itself never changed, so no Contact event would fire.",
+			"<code>affected_docs</code> turns a contact's links into the records to update: the Leads, Opportunities and Customers it is linked to, plus the Lead behind each of those, which rolls their contacts up.",
+			"<code>lead_of</code> reads that Lead from the database; <code>lead_in</code> reads it from a document in hand, which is the only way to get it from the version <em>before</em> a save and from one being deleted.",
+			"<code>refresh_party_lead</code> (Opportunity and Customer <b>on_update</b> / <b>on_trash</b>) keeps the Lead level when one appears, is re-pointed at another Lead, or is deleted - the contact itself never changed, so no Contact event would fire. Both Leads are refreshed on a re-point: the one it left and the one it joined.",
 			"<code>backfill_contact_tables</code> also syncs every record that already has rows, which is what drops the party contacts the Opportunities mirrored before the two were separated.",
 			"<code>on_contact_update</code> merges links before and after the save, so unlinking a contact removes its row from the old record.",
 		])
-		+ py(LD, "HIDDEN_FIELDS")
-		+ js("public/js/leads_activity_section.js", 60, 77)
+		+ py("overrides/customer.py", "CUSTOM_FIELDS", "apply_customer_customizations")
+		+ js("public/js/leads_activity_section.js", 89, 106)
 		+ explain([
-			"ERPNext's own contact list (<code>contact_html</code>) is hidden by a property setter on both DocTypes. ERPNext still renders into it, just unseen, so nothing in its code breaks.",
-			"The New Contact button is <code>frappe.new_doc(\"Contact\")</code>, like ERPNext's. The Contact form fills its Links table from <code>frappe.dynamic_link</code>, so we set that to <em>this</em> record first: on an Opportunity, ERPNext had left its party there, which would have created the contact on the Lead instead.",
+			"The Customer gets the same two custom fields from the same helper, inserted after its own <code>contact_html</code>, i.e. at the end of the <b>Address and Contact</b> section of the Contact &amp; Address tab.",
+			"ERPNext's own contact list (<code>contact_html</code>) is hidden by a property setter on all three DocTypes. ERPNext still renders into it, just unseen, so nothing in its code breaks.",
+			"The New Contact button is <code>frappe.new_doc(\"Contact\")</code>, like ERPNext's. The Contact form fills its Links table from <code>frappe.dynamic_link</code>, so we set that to <em>this</em> record first: on an Opportunity, ERPNext had left its party there, which would have created the contact on the Lead instead. On a Customer this is what keeps a contact added there out of the Opportunity it came from.",
+			"<code>public/js/customer.js</code> calls the same two helpers as the Lead and the Opportunity (<code>show_when_empty</code> in setup, <code>add_contact_button</code> in refresh), so <code>leads_activity_section.js</code> is loaded ahead of it in <code>doctype_js</code>.",
 		])))
 
 	s.append(step(15, "s-visible", "Empty tables stay visible",
@@ -177,18 +182,20 @@ def steps_b():
 			"The other tenders are left exactly as they are: losing a tender is not the same as cancelling it.",
 		])))
 
-	s.append(step(19, "s-registration-attachment", "A Registration activity needs an attachment",
-		"The Attachments table is marked mandatory as soon as the Type is Registration, and saving without a file is refused.",
+	s.append(step(19, "s-registration-attachment", "Every activity on a Lead or an Opportunity needs an attachment",
+		"The Attachments table is marked mandatory as soon as the Link Type is Lead or Opportunity, or the Type is Registration, and saving without a file is refused.",
 		["leads_activity.json → attachments", "leads_activity.js → validate", "leads_activity.py → LeadsActivity.validate"],
-		why("Registration is the activity that converts the Lead into a Customer (step 13), so the document it was registered with has to be on file. Three layers, each doing what only it can: <code>mandatory_depends_on</code> on the table puts the red asterisk there the moment the Type is Registration (<code>reqd</code> could not, because the rule is per activity type); the form's <b>validate</b> refuses the save with our own message; and the server's <b>validate</b> is the one that actually holds, for the API and Data Import as well as the form.")
+		why("What the CRM follows a client up with is its paperwork, so an activity on a Lead or an Opportunity with nothing on file is not a record of anything — whatever its type. A Registration needs one whatever it is linked to, a Prospect included, because it is the activity that converts the Lead into a Customer (step 13), so the document it was registered with has to be on file. Three layers, each doing what only it can: <code>mandatory_depends_on</code> on the table puts the red asterisk there the moment the Type or the Link Type calls for it (<code>reqd</code> could not, because the rule depends on other fields); the form's <b>validate</b> refuses the save with our own message; and the server's <b>validate</b> is the one that actually holds, for the API and Data Import as well as the form.")
 		+ json_field(LA.replace(".py", ".json"), "attachments")
-		+ js("custom_crm_updates/doctype/leads_activity/leads_activity.js", 13, 34)
-		+ py(LA, "LeadsActivity.validate", "LeadsActivity.validate_registration_attachment")
+		+ js("custom_crm_updates/doctype/leads_activity/leads_activity.js", 12, 48)
+		+ py(LA, "ATTACHMENT_LINK_TYPES", "LeadsActivity.validate", "LeadsActivity.validate_attachment")
 		+ explain([
-			"Frappe v14 evaluates <code>mandatory_depends_on</code> on the form only (<code>layout.js</code> turns it into <code>reqd</code> on every field change), which is why the server check stays.",
+			"Frappe v14 evaluates <code>mandatory_depends_on</code> on the form only (<code>layout.js</code> turns it into <code>reqd</code> on every field change), which is why the server check stays — and why widening it cannot break the activities created over the API.",
 			"The form's <code>validate</code> runs <em>before</em> Frappe's own mandatory check (<code>form.js</code> triggers validate, then <code>save.js</code> calls <code>check_mandatory</code>), so the user sees this message rather than the generic Missing Fields dialog.",
+			"Two messages, so each says what is actually wrong: the Registration one names the type, the other names what the activity is linked to.",
 			"A row with no file picked is not an attachment, on both sides: counting it would hand the user Frappe's \"mandatory field in row 1\" error instead of the one that says what is needed.",
-			"It applies to every Link Type (Lead, Prospect, Opportunity), to an activity that <em>becomes</em> a Registration, and to emptying the table on an existing one.",
+			"It applies to an activity that <em>becomes</em> a Registration, to one moved onto a Lead or an Opportunity, and to emptying the table on an existing one. Only a Prospect can hold an activity with no attachment, and only for the other types.",
+			"Separately, the Opportunity itself must have an attachment before any activity can be logged against it (step 23) — that one is about the Opportunity's paperwork, this one about the activity's.",
 		])))
 
 	s.append(step(20, "s-opportunity-name", "Opportunity Name, Description and the title",
@@ -240,7 +247,7 @@ def steps_b():
 		+ doctype_table("custom_crm_updates/doctype/opportunity_attachment/opportunity_attachment.json")
 		+ js("public/js/opportunity.js", 78, 90)
 		+ py(OP, "ATTACHMENTS_FIELD", "validate_attachments")
-		+ js("public/js/leads_activity_section.js", 36, 65)
+		+ js("public/js/leads_activity_section.js", 37, 66)
 		+ py(OP, "ACTIVITY_SOURCE_TABLES", "validate_activity_source")
 		+ explain([
 			"A row the user added but never picked a file for is not an attachment, on both sides: counting it would hand them Frappe's \"mandatory field in row 1\" error instead of the one that says what is needed. On the server the filter is <code>attachment != \"\"</code>, which leaves out both the empty and the never-filled rows.",
@@ -251,8 +258,21 @@ def steps_b():
 			"An Opportunity saved before this rule existed keeps its empty table until someone saves it — at which point the attachment is asked for.",
 		])))
 
-	s.append(step(24, "s-tests", "Automated tests",
-		"112 tests check every rule above against a real ERPNext database, then undo everything they created.",
+	s.append(step(24, "s-connections", "The Opportunity's Connections tab shows its client",
+		"Opening an Opportunity shows the Lead, Customer or Prospect it belongs to in Connections, alongside its Activities, its Project Tenders and the Customer it was converted into.",
+		["overrides/opportunity.py → PARTY_FIELDS, set_party_links, get_dashboard_data", "hooks.py → Opportunity validate, after_migrate"],
+		why("A Connections card follows a link <em>into</em> this document, or an <b>internal link</b> — one plain field on it pointing out. The party is neither: it is a Dynamic Link (<code>opportunity_from</code> + <code>party_name</code>), and <code>get_internal_links</code> reads a single fieldname, so one card would have to serve three different DocTypes and would send a Lead-sourced Opportunity to a Customer that does not exist. Each party type therefore gets its own hidden mirror field, filled from <code>party_name</code> on every save, and each card reads its own. The mirrors are derived values, never typed into: <code>party_name</code> stays the one field anyone edits.")
+		+ py(OP, "PARTY_FIELDS", "set_party_links", "backfill_party_links", "get_dashboard_data")
+		+ explain([
+			"<code>set_party_links</code> (Opportunity <b>validate</b>) fills the mirror for the current type and clears the other two, so an Opportunity re-pointed from a Lead to a Customer never shows both.",
+			"<code>internal_links</code> maps each DocType to its mirror, and <code>transactions</code> adds the cards to a <b>Client</b> group. Frappe falls back to an ordinary search when an internal link comes back empty, which is what makes the Customer card show the Customers converted <em>from</em> this Opportunity (<code>Customer.opportunity_name</code>) on a Lead's Opportunity.",
+			"Project Tender joins the same group through <code>non_standard_fieldnames</code>, guarded by a check that the contracting app is installed.",
+			"<code>backfill_party_links</code> (after_migrate) fills the mirrors for Opportunities that predate the fields, writing straight to the database with no modified bump — the value is derived, not a change anyone made — and skipping rows that already agree, so re-running is free.",
+			"Nothing about the party itself changed: the same Dynamic Link still drives the form, the Contacts table and the Opportunity's own rules.",
+		])))
+
+	s.append(step(25, "s-tests", "Automated tests",
+		"131 tests check every rule above against a real ERPNext database, then undo everything they created.",
 		["custom_crm_updates/doctype/leads_activity/test_leads_activity.py", "tests/test_crm_automation.py", "tests/test_opportunity.py"],
 		why("Each test class extends Frappe's <code>FrappeTestCase</code>, which rolls the database back after the class finishes. Tests create their own Leads, Opportunities and activities, so they never depend on (or change) real data. This site has no default Customer Group, so the tests stand one in with a <b>mock</b> instead of writing a real default.")
 		+ py("custom_crm_updates/doctype/leads_activity/test_leads_activity.py", "make_lead", "customer_defaults")
@@ -262,7 +282,7 @@ def steps_b():
 			"<code>customer_defaults</code> temporarily replaces <code>frappe.db.get_default</code> so ERPNext sees a Customer Group and Territory; a real default would stay in the cache after the rollback.",
 			"The first sample test follows the whole Tendering flow: two Tendering activities, Submit one tender, then check that only <em>its</em> activity became Done and that the Opportunity was <em>not</em> moved on.",
 			"The second closes the Opportunity as Won with one tender picked, and checks that only that tender became Won, that both the saved form and the database show it, and that the other tender is untouched.",
-			"<code>tests/test_opportunity.py</code> covers steps 20–23: the title following the Opportunity Name, the attachment an Opportunity cannot be saved without (and the Activity that cannot be created without it), the Final Value arithmetic, and the field order the moved Opportunity Value section produces.",
+			"<code>tests/test_opportunity.py</code> covers steps 20–24: the title following the Opportunity Name, the attachment an Opportunity cannot be saved without (and the Activity that cannot be created without it), the Final Value arithmetic, and the field order the moved Opportunity Value section produces.",
 			"Run them on a dedicated test site: <code>bench --site &lt;test-site&gt; run-tests --app custom_crm_updates</code>. On a live site ERPNext saves its sample test records permanently.",
 		])))
 	return "".join(s)

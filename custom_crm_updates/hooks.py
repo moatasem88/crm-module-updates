@@ -31,7 +31,7 @@ required_apps = ["erpnext"]
 doctype_js = {
 	"Lead": ["public/js/leads_activity_section.js", "public/js/lead.js"],
 	"Opportunity": ["public/js/leads_activity_section.js", "public/js/opportunity.js"],
-	"Customer": ["public/js/customer.js"],
+	"Customer": ["public/js/leads_activity_section.js", "public/js/customer.js"],
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -71,11 +71,13 @@ doctype_js = {
 after_migrate = [
 	"custom_crm_updates.overrides.lead.apply_lead_customizations",
 	"custom_crm_updates.overrides.opportunity.apply_opportunity_customizations",
+	"custom_crm_updates.overrides.customer.apply_customer_customizations",
 	"custom_crm_updates.overrides.project_tender.apply_project_tender_customizations",
 	# after the three above: they need the custom fields
 	"custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity.backfill_activity_tables",
 	"custom_crm_updates.overrides.project_tender.backfill_opportunity_tenders",
 	"custom_crm_updates.overrides.contact.backfill_contact_tables",
+	"custom_crm_updates.overrides.opportunity.backfill_party_links",
 ]
 
 # Uninstallation
@@ -146,6 +148,7 @@ doc_events = {
 		"validate": [
 			"custom_crm_updates.overrides.contact.refresh_own_table",
 			"custom_crm_updates.overrides.project_tender.validate_approved_tender",
+			"custom_crm_updates.overrides.opportunity.set_party_links",
 			"custom_crm_updates.overrides.opportunity.set_title",
 			"custom_crm_updates.overrides.opportunity.validate_attachments",
 			"custom_crm_updates.overrides.opportunity.calculate_contributions",
@@ -154,6 +157,12 @@ doc_events = {
 			"custom_crm_updates.overrides.project_tender.apply_approved_tender",
 			"custom_crm_updates.overrides.contact.refresh_party_lead",
 		],
+		"on_trash": "custom_crm_updates.overrides.contact.refresh_party_lead",
+	},
+	"Customer": {
+		"validate": "custom_crm_updates.overrides.contact.refresh_own_table",
+		# the Lead it was made from rolls its contacts up
+		"on_update": "custom_crm_updates.overrides.contact.refresh_party_lead",
 		"on_trash": "custom_crm_updates.overrides.contact.refresh_party_lead",
 	},
 	"Contact": {

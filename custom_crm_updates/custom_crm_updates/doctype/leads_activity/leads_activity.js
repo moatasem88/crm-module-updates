@@ -1,14 +1,16 @@
 // Copyright (c) 2026, smart and contributors
 // For license information, please see license.txt
 
-// A Registration activity needs at least one attachment. The rule itself is
-// enforced on the server (LeadsActivity.validate_registration_attachment);
+// An activity on a Lead or an Opportunity needs at least one attachment,
+// whatever its type; a Registration needs one whatever it is linked to. The
+// rule itself is enforced on the server (LeadsActivity.validate_attachment);
 // here it is shown on the form: the Attachments table is marked mandatory as
-// soon as the Type is Registration (mandatory_depends_on in
+// soon as the Type or the Link Type calls for it (mandatory_depends_on in
 // leads_activity.json), and saving without a file is refused with the same
 // message, before Frappe's generic Missing Fields dialog can appear.
 
 const REGISTRATION = "Registration";
+const ATTACHMENT_LINK_TYPES = ["Lead", "Opportunity"];
 
 // A row the user added but never picked a file for is not an attachment.
 function attached_files(frm) {
@@ -23,14 +25,21 @@ frappe.ui.form.on("Leads Activity", {
 	},
 
 	validate(frm) {
-		if (frm.doc.activity_type === REGISTRATION && !attached_files(frm).length) {
-			frappe.throw({
-				title: __("مرفق مطلوب"),
-				message: __(
-					"لا يمكن حفظ Activity من النوع Registration بدون مرفقات. أرفق ملفاً واحداً على الأقل في جدول Attachments."
-				),
-			});
-		}
+		const registration = frm.doc.activity_type === REGISTRATION;
+		if (!registration && !ATTACHMENT_LINK_TYPES.includes(frm.doc.link_type)) return;
+		if (attached_files(frm).length) return;
+
+		// field and DocType names stay in English, as in the system
+		frappe.throw({
+			title: __("مرفق مطلوب"),
+			message: registration
+				? __(
+						"لا يمكن حفظ Activity من النوع Registration بدون مرفقات. أرفق ملفاً واحداً على الأقل في جدول Attachments."
+				  )
+				: __("لا يمكن حفظ Activity على {0} بدون مرفقات. أرفق ملفاً واحداً على الأقل في جدول Attachments.", [
+						frm.doc.link_type,
+				  ]),
+		});
 	},
 
 	link_type(frm) {

@@ -40,7 +40,11 @@ from frappe.utils import flt
 
 from custom_crm_updates.overrides.contact import contact_table_fields
 from custom_crm_updates.overrides.lead import move_section
-from custom_crm_updates.overrides.project_tender import APPROVED_TENDER_FIELD, TENDER_TABLE
+from custom_crm_updates.overrides.project_tender import (
+	APPROVED_TENDER_FIELD,
+	OPPORTUNITY_FIELD,
+	TENDER_TABLE,
+)
 from custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity import (
 	activity_table_fields,
 	add_to_dashboard,
@@ -54,6 +58,16 @@ BREAKDOWN_SECTION = "custom_opportunity_breakdown_section"
 CONTRIBUTIONS_FIELD = "custom_opportunity_contributions"
 ATTACHMENTS_SECTION = "custom_opportunity_attachments_section"
 ATTACHMENTS_FIELD = "custom_opportunity_attachments"
+
+# The party is a Dynamic Link (opportunity_from + party_name), which a
+# Connections card cannot follow: an internal dashboard link reads one plain
+# field. So each party type has its own mirror, filled on save by
+# set_party_links, and the Connections tab points at those.
+PARTY_FIELDS = {
+	"Lead": "custom_party_lead",
+	"Customer": "custom_party_customer",
+	"Prospect": "custom_party_prospect",
+}
 
 # Core's sections. The Opportunity Value one is moved above Organization, so
 # the sections added below Organization go after its last field instead.
@@ -89,6 +103,23 @@ CUSTOM_FIELDS = {
 			"label": "Opportunity Description",
 			"insert_after": NAME_FIELD,
 		},
+		# Mirrors of party_name, one per party type, so the Connections tab
+		# can link to it (see PARTY_FIELDS). Hidden: the party is already on
+		# the form as Opportunity From / Party, and these only ever repeat it.
+		*[
+			{
+				"fieldname": fieldname,
+				"fieldtype": "Link",
+				"label": f"Party {party_type}",
+				"options": party_type,
+				"insert_after": "party_name",
+				"hidden": 1,
+				"read_only": 1,
+				"no_copy": 1,
+				"description": "Set from Party on save; what the Connections tab links to.",
+			}
+			for party_type, fieldname in PARTY_FIELDS.items()
+		],
 		# last field of core's Opportunity Value section, so this lands inside
 		# it and travels with it when apply_field_order moves it
 		{
@@ -217,6 +248,32 @@ def apply_field_order():
 	)
 
 
+def set_party_links(doc, method=None):
+	"""validate: copy the party into the mirror field for its type, and clear
+	the others, so an Opportunity re-pointed from a Lead to a Customer does
+	not keep both. These fields exist only for the Connections tab
+	(get_dashboard_data); party_name stays the field anyone edits."""
+	for party_type, fieldname in PARTY_FIELDS.items():
+		doc.set(fieldname, doc.party_name if doc.opportunity_from == party_type else None)
+
+
+def backfill_party_links():
+	"""after_migrate: fill the mirrors for the Opportunities that predate
+	them, so their Connections tab is right without waiting for a re-save.
+	Written straight to the database with no modified bump: the value is
+	derived from party_name, not a change anyone made."""
+	fields = ["name", "opportunity_from", "party_name", *PARTY_FIELDS.values()]
+	for opportunity in frappe.get_all("Opportunity", fields=fields):
+		values = {
+			fieldname: (opportunity.party_name if opportunity.opportunity_from == party_type else None)
+			for party_type, fieldname in PARTY_FIELDS.items()
+		}
+		if all(opportunity.get(fieldname) == value for fieldname, value in values.items()):
+			continue
+
+		frappe.db.set_value("Opportunity", opportunity.name, values, update_modified=False)
+
+
 def set_title(doc, method=None):
 	"""validate, after core's own (which falls back to the party's name): the
 	Opportunity Name is the Opportunity's title, so it is what the list view,
@@ -312,5 +369,28 @@ def validate_activity_source(doc, method=None):
 
 
 def get_dashboard_data(data):
-	"""override_doctype_dashboards"""
-	return add_to_dashboard(data, "Opportunity")
+	"""override_doctype_dashboards: the Connections tab shows the Leads
+	Activities logged against this Opportunity, the client it belongs to
+	(whether that is a Lead, a Customer or a Prospect), and the Project
+	Tenders raised from it.
+
+	The client is an *internal* link: the Opportunity points at it, not the
+	other way round, so the card reads one of the PARTY_FIELDS mirrors. When
+	a mirror is empty Frappe falls back to the ordinary search for documents
+	pointing back here, which is what finds the Customers converted *from*
+	this Opportunity (Customer.opportunity_name) on a Lead's Opportunity."""
+	data = add_to_dashboard(data, "Opportunity")
+
+	data.setdefault("internal_links", {}).update(
+		{party_type: fieldname for party_type, fieldname in PARTY_FIELDS.items()}
+	)
+	data.setdefault("non_standard_fieldnames", {})["Customer"] = "opportunity_name"
+	items = list(PARTY_FIELDS)
+
+	# contracting app; absent on a bench that doesn't have it
+	if frappe.db.exists("DocType", "Project Tender"):
+		data["non_standard_fieldnames"]["Project Tender"] = OPPORTUNITY_FIELD
+		items.append("Project Tender")
+
+	data["transactions"].append({"label": _("Client"), "items": items})
+	return data

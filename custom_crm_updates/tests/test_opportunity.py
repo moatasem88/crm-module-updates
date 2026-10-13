@@ -7,6 +7,7 @@ against it), the Opportunity Breakdown rows, and where the moved Opportunity
 Value section sits (custom_crm_updates/overrides/opportunity.py)."""
 
 import frappe
+from frappe.desk.notifications import get_open_count
 from frappe.tests.utils import FrappeTestCase
 
 from custom_crm_updates.overrides.opportunity import (
@@ -18,8 +19,10 @@ from custom_crm_updates.overrides.opportunity import (
 	NAME_FIELD,
 	ORGANIZATION_LAST_FIELD,
 	ORGANIZATION_SECTION,
+	PARTY_FIELDS,
 	TARGETED_AMOUNT,
 	VALUE_SECTION,
+	backfill_party_links,
 )
 from custom_crm_updates.custom_crm_updates.doctype.leads_activity.test_leads_activity import (
 	make_activity,
@@ -47,6 +50,17 @@ def make_opportunity(**kwargs):
 	values = opportunity_values(**kwargs)
 	values.setdefault(ATTACHMENTS_FIELD, [{"attachment": "/files/_test_opportunity.pdf"}])
 	return frappe.get_doc(values).insert()
+
+
+def make_customer(**kwargs):
+	values = {
+		"doctype": "Customer",
+		"customer_name": "_Test Opportunity Customer " + frappe.generate_hash(length=6),
+		"customer_group": frappe.get_all("Customer Group", {"is_group": 0}, pluck="name", limit=1)[0],
+		"territory": frappe.get_all("Territory", {"is_group": 0}, pluck="name", limit=1)[0],
+	}
+	values.update(kwargs)
+	return frappe.get_doc(values).insert().name
 
 
 def make_opportunity_without_attachments():
@@ -250,3 +264,84 @@ class TestOpportunityLayout(FrappeTestCase):
 		field = frappe.get_meta("Opportunity Contribution").get_field("final_value")
 		self.assertTrue(field.read_only)
 		self.assertEqual(field.options, "currency")
+
+
+class TestOpportunityConnections(FrappeTestCase):
+	"""The Connections tab shows the client this Opportunity belongs to,
+	whichever type it is (set_party_links, get_dashboard_data)."""
+
+	def mirrors(self, opportunity):
+		return {
+			party_type: opportunity.get(fieldname) for party_type, fieldname in PARTY_FIELDS.items()
+		}
+
+	def test_a_lead_opportunity_mirrors_its_lead(self):
+		lead = make_lead().name
+		opportunity = make_opportunity(party_name=lead)
+		self.assertEqual(self.mirrors(opportunity), {"Lead": lead, "Customer": None, "Prospect": None})
+
+	def test_a_customer_opportunity_mirrors_its_customer(self):
+		customer = make_customer()
+		opportunity = make_opportunity(opportunity_from="Customer", party_name=customer)
+		self.assertEqual(
+			self.mirrors(opportunity), {"Lead": None, "Customer": customer, "Prospect": None}
+		)
+
+	def test_repointing_moves_the_mirror(self):
+		opportunity = make_opportunity()
+		customer = make_customer()
+
+		opportunity.opportunity_from = "Customer"
+		opportunity.party_name = customer
+		opportunity.save()
+		# the Lead mirror is cleared, so only one card is ever filled
+		self.assertEqual(
+			self.mirrors(opportunity), {"Lead": None, "Customer": customer, "Prospect": None}
+		)
+
+	def test_the_dashboard_points_at_the_mirrors(self):
+		data = frappe.get_meta("Opportunity").get_dashboard_data()
+
+		for party_type, fieldname in PARTY_FIELDS.items():
+			self.assertEqual(data["internal_links"][party_type], fieldname)
+		# fallback for Customers converted *from* this Opportunity
+		self.assertEqual(data["non_standard_fieldnames"]["Customer"], "opportunity_name")
+
+		listed = [item for group in data["transactions"] for item in group["items"]]
+		for party_type in PARTY_FIELDS:
+			self.assertIn(party_type, listed)
+
+	def test_connections_report_the_lead(self):
+		# end to end, through the API the Connections tab itself calls
+		lead = make_lead().name
+		opportunity = make_opportunity(party_name=lead)
+
+		count = get_open_count("Opportunity", opportunity.name)["count"]
+		lead_card = next(c for c in count["internal_links_found"] if c["doctype"] == "Lead")
+		self.assertEqual(lead_card["names"], [lead])
+
+	def test_connections_report_a_customer_converted_from_the_opportunity(self):
+		# no Customer mirror (the party is a Lead), so Frappe falls back to
+		# Customers pointing back here through opportunity_name
+		opportunity = make_opportunity()
+		customer = make_customer(opportunity_name=opportunity.name)
+
+		count = get_open_count("Opportunity", opportunity.name)["count"]
+		customer_card = next(c for c in count["external_links_found"] if c["doctype"] == "Customer")
+		self.assertEqual(customer_card["count"], 1)
+		self.assertTrue(frappe.db.exists("Customer", customer))
+
+	def test_backfill_fills_an_opportunity_that_predates_the_fields(self):
+		lead = make_lead().name
+		opportunity = make_opportunity(party_name=lead)
+		frappe.db.set_value("Opportunity", opportunity.name, PARTY_FIELDS["Lead"], None)
+
+		backfill_party_links()
+		self.assertEqual(
+			frappe.db.get_value("Opportunity", opportunity.name, PARTY_FIELDS["Lead"]), lead
+		)
+
+		# idempotent, and it never touches the timestamp
+		modified = frappe.db.get_value("Opportunity", opportunity.name, "modified")
+		backfill_party_links()
+		self.assertEqual(frappe.db.get_value("Opportunity", opportunity.name, "modified"), modified)

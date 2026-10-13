@@ -17,6 +17,7 @@ from custom_crm_updates.overrides.project_tender import (
 )
 from custom_crm_updates.custom_crm_updates.doctype.leads_activity.test_leads_activity import (
 	customer_defaults,
+	leaf,
 	make_activity,
 	make_lead,
 	make_opportunity_from,
@@ -570,6 +571,119 @@ class TestContactsTable(FrappeTestCase):
 		opportunity.save()
 		self.assertNotIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
 		self.assertIn(contact.name, [r.contact for r in self.rows("Lead", other_lead)])
+
+	def make_customer(self, **kwargs):
+		"""A Customer of this Lead. Built by hand rather than through
+		convert_lead_to_customer: ERPNext's conversion also links the Lead's
+		own contacts to the Customer, and these tests are about which document
+		a contact was linked to."""
+		values = {
+			"doctype": "Customer",
+			"customer_name": "_Test Contacts Customer " + frappe.generate_hash(length=6),
+			"customer_group": leaf("Customer Group"),
+			"territory": leaf("Territory"),
+			"lead_name": self.lead,
+		}
+		values.update(kwargs)
+		return frappe.get_doc(values).insert().name
+
+	def test_customer_shows_only_its_own_contacts(self):
+		opportunity = make_opportunity_from(self.lead).name
+		opportunity_contact = self.make_contact(("Opportunity", opportunity))
+		customer = self.make_customer()
+		own_contact = self.make_contact(("Customer", customer))
+		# after the conversion, so ERPNext cannot have linked it to the Customer
+		lead_contact = self.make_contact(("Lead", self.lead))
+
+		rows = {r.contact: r.linked_via for r in self.rows("Customer", customer)}
+		self.assertEqual(rows.get(own_contact.name), f"Customer {customer}")
+		# not an exact list: ERPNext's own Lead -> Customer conversion links the
+		# Lead's contacts to the Customer too, and those are its contacts
+		self.assertNotIn(lead_contact.name, rows)
+		self.assertNotIn(opportunity_contact.name, rows)
+
+		# and the contact added on the Customer stays out of the Opportunity
+		self.assertNotIn(own_contact.name, [r.contact for r in self.rows("Opportunity", opportunity)])
+
+	def test_lead_rolls_up_its_customer_contacts(self):
+		lead_contact = self.make_contact(("Lead", self.lead))
+		opportunity = make_opportunity_from(self.lead).name
+		opportunity_contact = self.make_contact(("Opportunity", opportunity))
+		customer = self.make_customer()
+		customer_contact = self.make_contact(("Customer", customer))
+
+		rows = {r.contact: r.linked_via for r in self.rows("Lead", self.lead)}
+		self.assertEqual(rows.get(lead_contact.name), f"Lead {self.lead}")
+		self.assertEqual(rows.get(opportunity_contact.name), f"Opportunity {opportunity}")
+		self.assertEqual(rows.get(customer_contact.name), f"Customer {customer}")
+
+		# the Lead's own first, then its Opportunities', then its Customer's
+		order = [r.contact for r in self.rows("Lead", self.lead)]
+		self.assertLess(order.index(lead_contact.name), order.index(opportunity_contact.name))
+		self.assertLess(order.index(opportunity_contact.name), order.index(customer_contact.name))
+
+	def test_customer_contact_added_later_reaches_the_lead(self):
+		customer = self.make_customer()
+		contact = self.make_contact(("Customer", customer))
+		self.assertIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+
+		# and follows the contact being unlinked again
+		contact.links = []
+		contact.save()
+		self.assertNotIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+
+	def test_customer_made_from_an_opportunity_rolls_up_too(self):
+		# the other way ERPNext records the same conversion
+		opportunity = make_opportunity_from(self.lead).name
+		customer = self.make_customer(lead_name=None, opportunity_name=opportunity)
+		contact = self.make_contact(("Customer", customer))
+
+		rows = {r.contact: r.linked_via for r in self.rows("Lead", self.lead)}
+		self.assertEqual(rows.get(contact.name), f"Customer {customer}")
+
+	def test_only_this_leads_customers_roll_up(self):
+		other_lead = make_lead().name
+		stranger = self.make_contact(("Customer", self.make_customer(lead_name=other_lead)))
+
+		self.assertNotIn(stranger.name, [r.contact for r in self.rows("Lead", self.lead)])
+		self.assertIn(stranger.name, [r.contact for r in self.rows("Lead", other_lead)])
+
+	def test_deleting_the_customer_drops_its_contacts_from_the_lead(self):
+		customer = self.make_customer()
+		contact = self.make_contact(("Customer", customer))
+		self.assertIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+
+		# forced, like the Opportunity above: a Contact links to it
+		frappe.delete_doc("Customer", customer, force=True)
+		self.assertNotIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+
+	def test_repointing_the_customer_moves_its_contacts(self):
+		customer = self.make_customer()
+		contact = self.make_contact(("Customer", customer))
+		other_lead = make_lead().name
+
+		customer_doc = frappe.get_doc("Customer", customer)
+		customer_doc.lead_name = other_lead
+		customer_doc.save()
+		self.assertNotIn(contact.name, [r.contact for r in self.rows("Lead", self.lead)])
+		self.assertIn(contact.name, [r.contact for r in self.rows("Lead", other_lead)])
+
+	def test_contacts_table_on_customer_layout(self):
+		meta = frappe.get_meta("Customer")
+		order = [df.fieldname for df in meta.fields]
+		self.assertEqual(
+			order[order.index("contact_html") + 1 : order.index("primary_address_and_contact_detail")],
+			["custom_contacts_section", CONTACT_TABLE],
+		)
+		self.assertTrue(meta.get_field("contact_html").hidden)
+
+	def test_backfill_covers_customers(self):
+		customer = self.make_customer()
+		contact = self.make_contact(("Customer", customer))
+		frappe.db.delete("Leads Contact Detail", {"parenttype": "Customer", "parent": customer})
+
+		backfill_contact_tables()
+		self.assertIn(contact.name, [r.contact for r in self.rows("Customer", customer)])
 
 	def test_backfill_drops_contacts_mirrored_before_the_split(self):
 		# an Opportunity whose table still lists its Lead's contacts, as it
