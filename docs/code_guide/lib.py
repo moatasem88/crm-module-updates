@@ -71,8 +71,12 @@ def py(rel, *qualnames, caption=None):
 	return "\n".join(out)
 
 
-def py_lines(rel, a, b, caption=None):
+def py_lines(rel, a, b, caption=None, expect=None):
+	"""A fixed span of a file. `expect` is a string the span must still
+	contain: editing the file above it shifts the numbers, and without this
+	the guide would quietly show the wrong lines instead of failing."""
 	code = "\n".join(read(rel).splitlines()[a - 1 : b])
+	assert expect is None or expect in code, f"{rel} lines {a}-{b} no longer hold {expect!r}"
 	return _block(code, PythonLexer(), a, caption or f"{rel} · lines {a}–{b}")
 
 

@@ -7,11 +7,17 @@ Lead -> Customer conversion and the Contacts table
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
+from frappe.utils import add_days, nowdate
 
 from custom_crm_updates.overrides.contact import CONTACT_TABLE, backfill_contact_tables
+from custom_crm_updates.overrides.lead import CONVERT_DATE
+from custom_crm_updates.overrides.tender import COMPLETION_DATE
 from custom_crm_updates.overrides.opportunity import ATTACHMENTS_FIELD
+from custom_crm_updates.overrides.opportunity import WON_DATE as OPPORTUNITY_WON_DATE
 from custom_crm_updates.overrides.project_tender import (
 	APPROVED_TENDER_FIELD,
+	OPPORTUNITY_FIELD,
+	STATUS_DATE_FIELDS,
 	SUBMITTED_REQUIRED_TABLES,
 	TENDER_TABLE,
 )
@@ -24,7 +30,16 @@ from custom_crm_updates.custom_crm_updates.doctype.leads_activity.test_leads_act
 )
 
 # Records are created by the tests and rolled back by FrappeTestCase.
-test_ignore = ["Lead", "Prospect", "Opportunity", "User", "Customer", "Contact", "Project Tender"]
+test_ignore = [
+	"Lead",
+	"Prospect",
+	"Opportunity",
+	"User",
+	"Customer",
+	"Contact",
+	"Project Tender",
+	"Tender",
+]
 
 
 def customer_of(lead):
@@ -432,7 +447,9 @@ class TestApprovedTender(FrappeTestCase):
 
 		other = make_opportunity_from(make_lead().name).name
 		with customer_defaults():
-			self.make_tender(other)
+			stranger = self.make_tender(other)
+		for tender in (stranger, self.first, self.second):
+			submit_tender(tender)
 
 		tenders = get_opportunity_tenders(self.opportunity)
 		self.assertEqual([tender.name for tender in tenders], [self.first, self.second])
@@ -440,6 +457,25 @@ class TestApprovedTender(FrappeTestCase):
 			set(tenders[0].keys()),
 			{"name", "project_name", "client", "status", "total_sell_price"},
 		)
+
+	def test_the_popup_offers_submitted_tenders_only(self):
+		from custom_crm_updates.overrides.project_tender import get_opportunity_tenders
+
+		# a price that never left the office cannot be the one that was approved
+		self.assertEqual(get_opportunity_tenders(self.opportunity), [])
+
+		submit_tender(self.first)
+		self.assertEqual(
+			[tender.name for tender in get_opportunity_tenders(self.opportunity)], [self.first]
+		)
+
+	def test_a_tender_past_submitted_is_not_offered_either(self):
+		from custom_crm_updates.overrides.project_tender import get_opportunity_tenders
+
+		submit_tender(self.first)
+		for status in ("Lost", "Cancelled", "Won"):
+			frappe.db.set_value("Project Tender", self.first, "status", status)
+			self.assertEqual(get_opportunity_tenders(self.opportunity), [], status)
 
 	def test_status_other_than_won_leaves_the_tenders_alone(self):
 		self.win(self.first, status="Quotation")
@@ -725,5 +761,248 @@ class TestContactsTable(FrappeTestCase):
 		)
 		self.assertEqual(
 			opp_order[opp_order.index("total") + 1 : opp_order.index("activities_tab")],
-			["custom_project_tender_tab", TENDER_TABLE, APPROVED_TENDER_FIELD],
+			["custom_project_tender_tab", TENDER_TABLE, APPROVED_TENDER_FIELD, OPPORTUNITY_WON_DATE],
 		)
+
+
+class TestLeadConvertDate(FrappeTestCase):
+	"""Date of Convert: the day the Lead's status became "Converted"
+	(overrides/lead.py)."""
+
+	def setUp(self):
+		self.lead = make_lead().name
+
+	def convert_date(self):
+		return frappe.db.get_value("Lead", self.lead, CONVERT_DATE)
+
+	def test_an_open_lead_has_no_date(self):
+		self.assertIsNone(self.convert_date())
+
+	def test_set_when_the_status_is_changed_on_the_lead_itself(self):
+		lead = frappe.get_doc("Lead", self.lead)
+		lead.status = "Converted"
+		lead.save()
+
+		self.assertEqual(str(lead.get(CONVERT_DATE)), nowdate())
+		self.assertEqual(str(self.convert_date()), nowdate())
+
+	def test_set_when_a_customer_is_raised_from_the_lead(self):
+		# Registration -> Done converts the Lead, and ERPNext marks it
+		# Converted with frappe.db.set_value, where no Lead hook can see it
+		with customer_defaults():
+			make_activity(self.lead, activity_type="Registration", status="Done")
+
+		self.assertEqual(frappe.db.get_value("Lead", self.lead, "status"), "Converted")
+		self.assertEqual(str(self.convert_date()), nowdate())
+
+	def test_another_status_sets_no_date(self):
+		lead = frappe.get_doc("Lead", self.lead)
+		lead.status = "Interested"
+		lead.save()
+		self.assertIsNone(self.convert_date())
+
+	def test_the_first_conversion_is_the_one_that_is_kept(self):
+		earlier = add_days(nowdate(), -30)
+		frappe.db.set_value("Lead", self.lead, {"status": "Converted", CONVERT_DATE: earlier})
+
+		lead = frappe.get_doc("Lead", self.lead)
+		lead.status = "Open"
+		lead.save()
+		lead.status = "Converted"
+		lead.save()
+
+		self.assertEqual(str(lead.get(CONVERT_DATE)), earlier)
+
+	def test_an_ordinary_resave_leaves_the_date_alone(self):
+		earlier = add_days(nowdate(), -30)
+		frappe.db.set_value("Lead", self.lead, {"status": "Converted", CONVERT_DATE: earlier})
+
+		lead = frappe.get_doc("Lead", self.lead)
+		lead.company_name = "_Test Renamed Co"
+		lead.save()
+
+		self.assertEqual(str(lead.get(CONVERT_DATE)), earlier)
+
+
+class TestProjectTenderStatusDates(FrappeTestCase):
+	"""Submitted Date and Won Date on Project Tender, and the same two
+	columns on the Opportunity's Project Tenders table
+	(overrides/project_tender.py)."""
+
+	def setUp(self):
+		self.opportunity = make_opportunity_from(make_lead().name).name
+		with customer_defaults():
+			activity = make_activity(
+				self.opportunity, link_type="Opportunity", activity_type="Tendering"
+			)
+		self.tender = tenders_of(activity.name)[0]
+
+	def dates(self):
+		return frappe.db.get_value(
+			"Project Tender", self.tender, list(STATUS_DATE_FIELDS.values()), as_dict=True
+		)
+
+	def mirrored_row(self):
+		return next(
+			row
+			for row in frappe.get_doc("Opportunity", self.opportunity).get(TENDER_TABLE)
+			if row.project_tender == self.tender
+		)
+
+	def test_a_draft_tender_has_neither_date(self):
+		self.assertEqual(self.dates(), {"submitted_date": None, "won_date": None})
+
+	def test_submitted_date_is_set_on_submission(self):
+		submit_tender(self.tender)
+
+		dates = self.dates()
+		self.assertEqual(str(dates.submitted_date), nowdate())
+		self.assertIsNone(dates.won_date)
+		self.assertEqual(str(self.mirrored_row().submitted_date), nowdate())
+
+	def test_won_date_is_set_when_the_opportunity_approves_it(self):
+		opportunity = frappe.get_doc("Opportunity", self.opportunity)
+		opportunity.status = "Won"
+		opportunity.set(APPROVED_TENDER_FIELD, self.tender)
+		opportunity.save()
+
+		self.assertEqual(str(self.dates().won_date), nowdate())
+		# the Opportunity's own Won Date, and the table in the same tab
+		self.assertEqual(str(opportunity.get(OPPORTUNITY_WON_DATE)), nowdate())
+		self.assertEqual(str(self.mirrored_row().won_date), nowdate())
+
+	def test_a_status_with_no_date_of_its_own_sets_nothing(self):
+		tender = frappe.get_doc("Project Tender", self.tender)
+		tender.status = "Under Review"
+		tender.save()
+		self.assertEqual(self.dates(), {"submitted_date": None, "won_date": None})
+
+	def test_the_first_submission_is_the_one_that_is_kept(self):
+		earlier = add_days(nowdate(), -10)
+		submit_tender(self.tender)
+		frappe.db.set_value("Project Tender", self.tender, "submitted_date", earlier)
+
+		tender = frappe.get_doc("Project Tender", self.tender)
+		# the cost rows submit_tender added are as thin as the tables allow
+		tender.flags.ignore_mandatory = True
+		tender.status = "Under Review"
+		tender.save()
+		tender.flags.ignore_mandatory = True
+		tender.status = "Submitted"
+		tender.save()
+
+		self.assertEqual(str(tender.submitted_date), earlier)
+
+
+class TestOpportunityWonDate(FrappeTestCase):
+	"""Won Date on Opportunity (overrides/opportunity.py)."""
+
+	def setUp(self):
+		self.opportunity = make_opportunity_from(make_lead().name).name
+
+	def won_date(self):
+		return frappe.db.get_value("Opportunity", self.opportunity, OPPORTUNITY_WON_DATE)
+
+	def test_an_open_opportunity_has_no_date(self):
+		self.assertIsNone(self.won_date())
+
+	def test_set_when_the_opportunity_is_won(self):
+		opportunity = frappe.get_doc("Opportunity", self.opportunity)
+		opportunity.status = "Won"
+		opportunity.save()
+		self.assertEqual(str(self.won_date()), nowdate())
+
+	def test_the_first_win_is_the_one_that_is_kept(self):
+		earlier = add_days(nowdate(), -5)
+		frappe.db.set_value(
+			"Opportunity", self.opportunity, {"status": "Won", OPPORTUNITY_WON_DATE: earlier}
+		)
+
+		opportunity = frappe.get_doc("Opportunity", self.opportunity)
+		opportunity.status = "Open"
+		opportunity.save()
+		opportunity.status = "Won"
+		opportunity.save()
+
+		self.assertEqual(str(opportunity.get(OPPORTUNITY_WON_DATE)), earlier)
+
+
+class TestTenderDates(FrappeTestCase):
+	"""Completion Date on Tender, its column on the Project Tender's Direct
+	Cost Details, and the Submission Deadline a Tender inherits from the
+	Opportunity behind its Project Tender (overrides/tender.py). Tender lives
+	in the contracting app."""
+
+	def setUp(self):
+		if not frappe.db.exists("DocType", "Tender"):
+			self.skipTest("the contracting app is not installed")
+
+		self.expected_closing = add_days(nowdate(), 30)
+		self.opportunity = make_opportunity_from(make_lead().name).name
+		frappe.db.set_value("Opportunity", self.opportunity, "expected_closing", self.expected_closing)
+		with customer_defaults():
+			activity = make_activity(
+				self.opportunity, link_type="Opportunity", activity_type="Tendering"
+			)
+		self.project_tender = tenders_of(activity.name)[0]
+
+	def make_tender(self, **kwargs):
+		values = {
+			"doctype": "Tender",
+			"project_tender": self.project_tender,
+			"project_name": "_Test Tender " + frappe.generate_hash(length=6),
+		}
+		values.update(kwargs)
+		return frappe.get_doc(values).insert()
+
+	def complete(self, tender):
+		tender.status = "Complete"
+		tender.save()
+		return tender
+
+	def direct_cost_row(self, tender):
+		return next(
+			row
+			for row in frappe.get_doc("Project Tender", self.project_tender).direct_cost_details
+			if row.tender == tender.name
+		)
+
+	def test_submission_deadline_comes_from_the_opportunity(self):
+		tender = self.make_tender()
+		self.assertEqual(str(tender.submission_deadline), self.expected_closing)
+
+	def test_a_deadline_given_at_creation_is_not_overwritten(self):
+		chosen = add_days(nowdate(), 3)
+		tender = self.make_tender(submission_deadline=chosen)
+		self.assertEqual(str(tender.submission_deadline), chosen)
+
+	def test_the_deadline_stays_editable(self):
+		tender = self.make_tender()
+		chosen = add_days(nowdate(), 7)
+		tender.submission_deadline = chosen
+		tender.save()
+		self.assertEqual(
+			str(frappe.db.get_value("Tender", tender.name, "submission_deadline")), chosen
+		)
+
+	def test_no_opportunity_behind_the_project_tender_leaves_it_empty(self):
+		frappe.db.set_value("Project Tender", self.project_tender, OPPORTUNITY_FIELD, None)
+		self.assertIsNone(self.make_tender().submission_deadline)
+
+	def test_completion_date_is_set_when_the_tender_is_completed(self):
+		tender = self.make_tender()
+		self.assertIsNone(tender.get(COMPLETION_DATE))
+
+		self.complete(tender)
+		self.assertEqual(str(tender.get(COMPLETION_DATE)), nowdate())
+		self.assertEqual(
+			str(frappe.db.get_value("Tender", tender.name, COMPLETION_DATE)), nowdate()
+		)
+
+	def test_the_date_shows_on_the_project_tenders_table(self):
+		tender = self.complete(self.make_tender())
+		self.assertEqual(str(self.direct_cost_row(tender).get(COMPLETION_DATE)), nowdate())
+
+	def test_an_unfinished_tender_has_no_date(self):
+		tender = self.make_tender()
+		self.assertIsNone(self.direct_cost_row(tender).get(COMPLETION_DATE))

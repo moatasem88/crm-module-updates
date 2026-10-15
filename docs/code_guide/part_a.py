@@ -74,69 +74,68 @@ ARCH = """
   <p><code>hooks.py</code> is the switchboard. It routes events from ERPNext records to our modules; the modules then read and write those records. Everything lives in <code>apps/custom_crm_updates/custom_crm_updates/</code>.</p></div>
   <figure class="fig">
     <div class="diagram">
-      <svg viewBox="0 0 980 400" role="img" aria-label="Architecture: hooks.py sends Lead, Opportunity, Contact and Project Tender events to lead.py, contact.py and project_tender.py. The Leads Activity controller calls project_tender.py and lead.py. All table updates go through mirror_table.py. The form scripts lead.js and opportunity.js share leads_activity_section.js.">
+      <svg viewBox="0 0 980 540" role="img" aria-label="Architecture: hooks.py sends Lead, Opportunity, Contact, Project Tender and Tender events to lead.py, contact.py, project_tender.py and tender.py. The Leads Activity controller calls project_tender.py and lead.py. All table updates go through mirror_table.py. The form scripts lead.js, opportunity.js and tender.js share leads_activity_section.js.">
         <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
         <g font-size="11" font-weight="700" letter-spacing="1.1" style="fill:var(--muted)">
-          <text x="20" y="26">ERPNEXT RECORDS</text><text x="300" y="26">WIRING</text><text x="530" y="26">SERVER CODE (PYTHON)</text><text x="20" y="300">BROWSER (JAVASCRIPT)</text>
+          <text x="20" y="26">ERPNEXT RECORDS</text><text x="300" y="26">WIRING</text><text x="530" y="26">SERVER CODE (PYTHON)</text><text x="20" y="384">BROWSER (JAVASCRIPT)</text>
         </g>
         <g font-size="12.5">
-          <g transform="translate(20,40)"><rect width="180" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="34" rx="2" style="fill:var(--c-lead)"/><text x="14" y="22" fill="currentColor">Lead</text></g>
-          <g transform="translate(20,84)"><rect width="180" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="34" rx="2" style="fill:var(--c-opp)"/><text x="14" y="22" fill="currentColor">Opportunity</text></g>
-          <g transform="translate(20,128)"><rect width="180" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="34" rx="2" style="fill:var(--muted)"/><text x="14" y="22" fill="currentColor">Contact</text></g>
-          <g transform="translate(20,172)"><rect width="180" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="34" rx="2" style="fill:var(--c-tender)"/><text x="14" y="22" fill="currentColor">Project Tender</text></g>
-          <g transform="translate(20,216)"><rect width="180" height="34" rx="6" style="fill:var(--accent-soft);stroke:var(--accent)"/><text x="14" y="22" fill="currentColor">Leads Activity (new)</text></g>
+          <g transform="translate(20,40)"><rect width="180" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="34" rx="2" style="fill:var(--c-lead)"/><text x="14" y="22" fill="currentColor">Lead</text></g><g transform="translate(20,84)"><rect width="180" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="34" rx="2" style="fill:var(--c-opp)"/><text x="14" y="22" fill="currentColor">Opportunity</text></g><g transform="translate(20,128)"><rect width="180" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="34" rx="2" style="fill:var(--muted)"/><text x="14" y="22" fill="currentColor">Contact</text></g><g transform="translate(20,172)"><rect width="180" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="34" rx="2" style="fill:var(--c-tender)"/><text x="14" y="22" fill="currentColor">Project Tender</text></g><g transform="translate(20,216)"><rect width="180" height="34" rx="6" style="fill:var(--accent-soft);stroke:var(--accent)"/><text x="14" y="22" fill="currentColor">Leads Activity (new)</text></g><g transform="translate(20,260)"><rect width="180" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><rect width="4" height="34" rx="2" style="fill:var(--c-tender)"/><text x="14" y="22" fill="currentColor">Tender</text></g>
 
-          <g transform="translate(290,100)"><rect width="150" height="70" rx="6" style="fill:var(--surface);stroke:var(--ink);stroke-width:1.5"/><text x="75" y="31" text-anchor="middle" font-weight="700" fill="currentColor">hooks.py</text><text x="75" y="50" text-anchor="middle" style="fill:var(--ink-2)">doc_events</text></g>
+          <g transform="translate(290,110)"><rect width="150" height="70" rx="6" style="fill:var(--surface);stroke:var(--ink);stroke-width:1.5"/><text x="75" y="31" text-anchor="middle" font-weight="700" fill="currentColor">hooks.py</text><text x="75" y="50" text-anchor="middle" style="fill:var(--ink-2)">doc_events</text></g>
 
-          <g transform="translate(530,40)"><rect width="200" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="12" y="22" fill="currentColor" font-family="var(--f-mono)">overrides/lead.py</text></g>
-          <g transform="translate(530,104)"><rect width="200" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="12" y="22" fill="currentColor">overrides/contact.py</text></g>
-          <g transform="translate(530,168)"><rect width="200" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="12" y="22" fill="currentColor">overrides/project_tender.py</text></g>
-          <g transform="translate(530,216)"><rect width="200" height="34" rx="6" style="fill:var(--accent-soft);stroke:var(--accent)"/><text x="12" y="22" fill="currentColor">leads_activity.py</text></g>
-          <g transform="translate(790,128)"><rect width="170" height="44" rx="6" style="fill:var(--surface);stroke:var(--ink);stroke-width:1.5"/><text x="85" y="20" text-anchor="middle" font-weight="700" fill="currentColor">mirror_table.py</text><text x="85" y="36" text-anchor="middle" style="fill:var(--ink-2)">writes table rows</text></g>
+          <g transform="translate(530,40)"><rect width="200" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="14" y="22" fill="currentColor" font-family="var(--f-mono)">overrides/lead.py</text></g><g transform="translate(530,94)"><rect width="200" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="14" y="22" fill="currentColor">overrides/contact.py</text></g><g transform="translate(530,148)"><rect width="200" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="14" y="22" fill="currentColor">overrides/project_tender.py</text></g><g transform="translate(530,219)"><rect width="200" height="34" rx="6" style="fill:var(--accent-soft);stroke:var(--accent)"/><text x="14" y="22" fill="currentColor">leads_activity.py</text></g><g transform="translate(530,273)"><rect width="200" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="14" y="22" fill="currentColor">overrides/tender.py</text></g>
+          <g transform="translate(790,120)"><rect width="170" height="44" rx="6" style="fill:var(--surface);stroke:var(--ink);stroke-width:1.5"/><text x="85" y="18" text-anchor="middle" font-weight="700" fill="currentColor">mirror_table.py</text><text x="85" y="37" text-anchor="middle" style="fill:var(--ink-2)">writes table rows</text></g>
 
-          <g transform="translate(20,312)"><rect width="150" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="12" y="22" fill="currentColor">lead.js</text></g>
-          <g transform="translate(20,356)"><rect width="150" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="12" y="22" fill="currentColor">opportunity.js</text></g>
-          <g transform="translate(290,334)"><rect width="230" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="12" y="22" fill="currentColor">leads_activity_section.js (shared)</text></g>
+          <g transform="translate(20,396)"><rect width="150" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="14" y="22" fill="currentColor">lead.js</text></g>
+          <g transform="translate(20,440)"><rect width="150" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="14" y="22" fill="currentColor">opportunity.js</text></g>
+          <g transform="translate(20,484)"><rect width="150" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="14" y="22" fill="currentColor">tender.js</text></g>
+          <g transform="translate(290,440)"><rect width="230" height="34" rx="6" style="fill:var(--surface);stroke:var(--line)"/><text x="14" y="22" fill="currentColor">leads_activity_section.js (shared)</text></g>
         </g>
         <g stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#a)">
-          <line x1="200" y1="57" x2="288" y2="118"/>
-          <line x1="200" y1="101" x2="288" y2="128"/>
-          <line x1="200" y1="145" x2="288" y2="140"/>
-          <line x1="200" y1="189" x2="288" y2="155"/>
-          <line x1="440" y1="115" x2="528" y2="60"/>
-          <line x1="440" y1="132" x2="528" y2="121"/>
-          <line x1="440" y1="150" x2="528" y2="182"/>
-          <line x1="200" y1="233" x2="528" y2="233"/>
-          <line x1="630" y1="216" x2="630" y2="204"/>
-          <polyline points="730,233 760,233 760,57 732,57"/>
-          <line x1="730" y1="121" x2="788" y2="144"/>
-          <line x1="730" y1="185" x2="788" y2="158"/>
-          <polyline points="730,240 775,240 775,170 788,170"/>
-          <line x1="170" y1="329" x2="288" y2="347"/>
-          <line x1="170" y1="373" x2="288" y2="357"/>
+          <line x1="200" y1="57" x2="288" y2="124"/>
+          <line x1="200" y1="101" x2="288" y2="134"/>
+          <line x1="200" y1="145" x2="288" y2="145"/>
+          <line x1="200" y1="189" x2="288" y2="156"/>
+          <line x1="200" y1="277" x2="288" y2="172"/>
+          <line x1="440" y1="124" x2="528" y2="60"/>
+          <line x1="440" y1="134" x2="528" y2="112"/>
+          <line x1="440" y1="152" x2="528" y2="166"/>
+          <line x1="440" y1="170" x2="528" y2="288"/>
+          <line x1="200" y1="233" x2="528" y2="236"/>
+          <line x1="630" y1="219" x2="630" y2="187"/>
+          <polyline points="730,236 760,236 760,57 732,57"/>
+          <line x1="730" y1="111" x2="788" y2="136"/>
+          <line x1="730" y1="165" x2="788" y2="146"/>
+          <polyline points="730,243 775,243 775,162 788,162"/>
+          <line x1="170" y1="413" x2="288" y2="447"/>
+          <line x1="170" y1="457" x2="288" y2="457"/>
+          <line x1="170" y1="490" x2="288" y2="467"/>
         </g>
         <g font-size="11" style="fill:var(--ink-2)">
           <text x="210" y="226">its own controller</text>
           <text x="640" y="212">Tendering</text>
-          <text x="766" y="100">Registration Done</text>
-          <text x="196" y="322">use</text>
+          <text x="766" y="94">Registration Done</text>
+          <text x="196" y="406">use</text>
         </g>
       </svg>
     </div>
-    <figcaption>Leads Activity has its own controller (no hook needed). When it saves, it calls <code>project_tender.py</code> for Tendering and <code>lead.py</code> for the Customer conversion. Every read-only table is written through <code>mirror_table.py</code>.</figcaption>
+    <figcaption>Leads Activity has its own controller (no hook needed). When it saves, it calls <code>project_tender.py</code> for Tendering and <code>lead.py</code> for the Customer conversion. <code>tender.py</code> is wired the same way as the rest, on the contracting app's Tender. Every read-only table is written through <code>mirror_table.py</code>.</figcaption>
   </figure>
   <div class="table-box"><table>
     <thead><tr><th>File</th><th>Type</th><th>Responsible for</th></tr></thead>
     <tbody>
       <tr><td><code>hooks.py</code></td><td>wiring</td><td>Connects events and scripts to the functions below</td></tr>
-      <tr><td><code>overrides/lead.py</code></td><td>Python</td><td>Lead fields and layout, Is Company, mandatory fields, Lead → Customer</td></tr>
-      <tr><td><code>overrides/opportunity.py</code></td><td>Python</td><td>Opportunity fields, statuses, Project Tender tab</td></tr>
-      <tr><td><code>overrides/project_tender.py</code></td><td>Python</td><td>Tendering → Project Tender, Submitted → activity Done, Opportunity Won → approved tender, tender table</td></tr>
+      <tr><td><code>overrides/lead.py</code></td><td>Python</td><td>Lead fields and layout, Is Company, mandatory fields, Lead → Customer, Date of Convert</td></tr>
+      <tr><td><code>overrides/opportunity.py</code></td><td>Python</td><td>Opportunity fields, statuses, Project Tender tab, Won Date</td></tr>
+      <tr><td><code>overrides/project_tender.py</code></td><td>Python</td><td>Tendering → Project Tender, Submitted → activity Done, Opportunity Won → approved tender, tender table, Submitted / Won dates</td></tr>
+      <tr><td><code>overrides/tender.py</code></td><td>Python</td><td>Tender Completion Date and its column on the Project Tender, Submission Deadline from the Opportunity</td></tr>
       <tr><td><code>overrides/contact.py</code></td><td>Python</td><td>Contacts tables on Lead and Opportunity</td></tr>
       <tr><td><code>mirror_table.py</code></td><td>Python</td><td>Shared writer for all read-only tables</td></tr>
       <tr><td><code>custom_crm_updates/doctype/leads_activity/</code></td><td>DocType</td><td>The activity record, its automations, list colours, form script, tests</td></tr>
       <tr><td><code>custom_crm_updates/doctype/…_detail, …_attachment, opportunity_project_tender</code></td><td>DocType (child)</td><td>Row layouts for the tables</td></tr>
-      <tr><td><code>public/js/lead.js</code>, <code>opportunity.js</code></td><td>JavaScript</td><td>Form controllers: Create menu, buttons</td></tr>
+      <tr><td><code>public/js/lead.js</code>, <code>opportunity.js</code></td><td>JavaScript</td><td>Form controllers: Create menu, buttons, the approved-tender pop-up</td></tr>
+      <tr><td><code>public/js/tender.js</code></td><td>JavaScript</td><td>Fills a new Tender's Submission Deadline in the form</td></tr>
       <tr><td><code>public/js/leads_activity_section.js</code></td><td>JavaScript</td><td>Button and table helpers shared by both forms</td></tr>
       <tr><td><code>tests/test_crm_automation.py</code></td><td>tests</td><td>Tendering, conversion, contacts and mandatory-field tests</td></tr>
     </tbody></table></div>
@@ -151,7 +150,7 @@ def steps_a():
 		["overrides/lead.py", "hooks.py → before_validate"],
 		why("No ERPNext file is edited. Visibility is a <b>property setter</b> (<code>depends_on</code>) on each person field, so the form hides them instantly; clearing the values is a <b>before_validate</b> hook so stale names never reach the saved Lead. This part already existed in the app when the work started and is explained here for completeness.")
 		+ py("overrides/lead.py", "IS_COMPANY", "PERSON_FIELDS")
-		+ py_lines("overrides/lead.py", 111, 120, "overrides/lead.py · inside apply_lead_customizations · lines 111–120")
+		+ py_lines("overrides/lead.py", 128, 137, "overrides/lead.py · inside apply_lead_customizations · lines 128–137", expect="mandatory_depends_on")
 		+ py("overrides/lead.py", "clear_person_fields")
 		+ explain([
 			"<code>depends_on = \"eval: !doc.custom_is_company\"</code> is a tiny JavaScript expression the form evaluates on every change: the field shows only while Is Company is unticked.",

@@ -1,0 +1,1042 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The CRM Workflow, End to End — ERPNext Training</title>
+<style>
+  :root{
+    --navy:#16233A;
+    --paper:#F7F6F3;
+    --stone:#ECE8E1;
+    --ink:#1B2435;
+    --muted:#4F5663;
+    --line:#D8D4CB;
+    --blue:#2C6AA8;
+    --blue-ink:#22578C;
+    --blue-tint:#E4EDF7;
+    --amber:#C06A1E;
+    --amber-ink:#9E4F12;
+    --amber-tint:#FAEADA;
+    --display:Georgia,"Times New Roman",serif;
+    --text:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Liberation Mono","Courier New",monospace;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+
+  html{scroll-snap-type:y mandatory;scroll-behavior:smooth;background:#0E1626}
+  body{font-family:var(--text);color:var(--ink);-webkit-font-smoothing:antialiased}
+
+  /* One slide = a 16:9 block that fills the window width.
+     Every size inside is in em, so the whole deck scales with the window. */
+  .slide{
+    position:relative;
+    width:100%;
+    aspect-ratio:16/9;
+    font-size:1.5vw;              /* 28.8px at a 1920px-wide window */
+    padding:4em 4em 5em;          /* 128px / 160px at that size */
+    background:var(--paper);
+    scroll-snap-align:start;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    counter-increment:slide;
+  }
+  body{counter-reset:slide}
+
+  /* page number, bottom right */
+  .slide::after{
+    content:counter(slide);
+    position:absolute;right:4em;bottom:2em;
+    font-family:var(--mono);font-size:0.75em;color:#8C9099;
+  }
+  .slide.statement::after{color:#7D8CA6}
+  .slide.cover::after{content:""}
+
+  /* ---- type scale: 3.5 / 2.125 / 1.375 / 1 / 0.75 em ---- */
+  h1{font-family:var(--display);font-size:3.5em;font-weight:700;line-height:1.05;letter-spacing:-0.01em}
+  h2{font-family:var(--display);font-size:2.125em;font-weight:700;line-height:1.1;letter-spacing:-0.005em}
+  h3{font-size:1.0625em;font-weight:600;line-height:1.25}
+  p,li,td,th{font-size:1em;line-height:1.45}
+  .lede{font-size:1.375em;line-height:1.35;color:var(--muted);max-width:46em}
+  .eyebrow{
+    font-family:var(--mono);font-size:0.75em;font-weight:500;
+    letter-spacing:0.16em;text-transform:uppercase;color:var(--blue-ink);
+  }
+  .small{font-size:0.75em;line-height:1.4;color:var(--muted)}
+  b,strong{font-weight:600}
+  /* a literal Arabic UI string, isolated so it cannot reorder the English around it */
+  .ar{unicode-bidi:isolate;direction:rtl;font-weight:600}
+
+  .head{display:flex;flex-direction:column;gap:0.5em;flex:none}
+  .body{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1.25em;margin-top:1.5em}
+  .body.top{justify-content:flex-start}
+
+  /* ---- system vocabulary: anything the employee sees on screen ---- */
+  code,.f,.st{font-family:var(--mono);font-size:0.9em}
+  code,.st{white-space:nowrap}       /* a status value never breaks across lines */
+  .f{white-space:normal}             /* a long field name may wrap at its spaces */
+  .f{color:var(--blue-ink);font-weight:500}                       /* field / DocType name */
+  .st{                                                            /* a status value */
+    display:inline-block;padding:0.1em 0.5em;border-radius:0.25em;
+    background:var(--stone);color:#38404E;font-weight:500;
+  }
+  .st.ok{background:#DCEBD9;color:#2C5A28}
+  .st.go{background:var(--blue-tint);color:var(--blue-ink)}
+  .st.warn{background:var(--amber-tint);color:var(--amber-ink)}
+
+  /* ---- cards ---- */
+  .row{display:flex;gap:1em}
+  .row.wide{gap:1.5em}
+  .card{
+    flex:1;min-width:0;background:#fff;border:1px solid var(--line);border-radius:0.5em;
+    padding:1.25em;display:flex;flex-direction:column;gap:0.5em;
+  }
+  .card .n{font-family:var(--mono);font-size:0.75em;font-weight:700;color:var(--blue-ink)}
+  .card p{font-size:0.875em;color:var(--muted)}
+  .card.auto{background:var(--blue-tint);border-color:#BCD4EA}
+  .card.auto .n{color:var(--blue-ink)}
+  .card.gate{background:var(--amber-tint);border-color:#E5C19B}
+  .card.gate .n,.card.gate h3{color:var(--amber-ink)}
+
+  /* a bordered note strip */
+  .note{
+    border-left:0.25em solid var(--blue);background:var(--blue-tint);
+    padding:1em 1.25em;border-radius:0 0.375em 0.375em 0;
+  }
+  .note.warn{border-left-color:var(--amber);background:var(--amber-tint)}
+  .note p{font-size:0.9375em;color:#2F3847}
+  .note .h{font-weight:600;color:var(--ink);font-size:0.9375em}
+
+  /* ---- tables ---- */
+  table{width:100%;border-collapse:collapse;font-size:0.8125em}
+  th{
+    text-align:left;font-weight:600;font-size:0.75em;letter-spacing:0.08em;
+    text-transform:uppercase;color:var(--muted);
+    padding:0 0.75em 0.5em;border-bottom:2px solid var(--ink);
+  }
+  td{padding:0.5em 0.75em;border-bottom:1px solid var(--line);vertical-align:top;color:#333B49}
+  td:first-child,th:first-child{padding-left:0}
+  td:last-child,th:last-child{padding-right:0}
+  td b{color:var(--ink)}
+
+  /* ---- numbered list used on the quick-reference slide ---- */
+  .steps{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:0.9em 2.5em}
+  .steps li{display:flex;gap:0.75em;font-size:0.9375em;line-height:1.35;align-items:baseline}
+  .steps .k{
+    font-family:var(--mono);font-size:0.8em;font-weight:700;color:#fff;background:var(--navy);
+    min-width:1.6em;height:1.6em;border-radius:50%;display:inline-flex;
+    align-items:center;justify-content:center;flex:none;
+  }
+  .steps .k.auto{background:var(--blue)}
+  .steps .k.gate{background:var(--amber)}
+
+  /* ---- flow chain (state diagrams built from boxes in a row) ---- */
+  .chain{display:flex;align-items:stretch;gap:0}
+  .chain .box{
+    flex:1;border:2px solid var(--navy);border-radius:0.5em;background:#fff;
+    padding:0.9em 0.75em;display:flex;flex-direction:column;gap:0.3em;justify-content:center;text-align:center;
+  }
+  .chain .box .s{font-family:var(--mono);font-size:0.9em;font-weight:700;color:var(--ink)}
+  .chain .box .w{font-size:0.75em;color:var(--muted);line-height:1.3}
+  .chain .box.auto{border-color:var(--blue);background:var(--blue-tint)}
+  .chain .box.gate{border-color:var(--amber);background:var(--amber-tint);border-style:dashed}
+  .chain .arr{
+    flex:none;width:2.25em;align-self:center;height:0.125em;background:var(--navy);
+    position:relative;
+  }
+  .chain .arr::after{
+    content:"";position:absolute;right:0;top:50%;transform:translateY(-50%);
+    border-left:0.5em solid var(--navy);border-top:0.35em solid transparent;border-bottom:0.35em solid transparent;
+  }
+
+  /* ---- diagrams ---- */
+  .diagram{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+  .diagram svg{width:100%;height:100%;max-height:100%}
+  .svg-box{fill:#fff;stroke:#16233A;stroke-width:2}
+  .svg-box.auto{fill:#E4EDF7;stroke:#2C6AA8}
+  .svg-box.gate{fill:#FAEADA;stroke:#C06A1E;stroke-width:3;stroke-dasharray:9 7}
+  .svg-box.done{fill:#DCEBD9;stroke:#2C5A28;stroke-width:3}
+  .svg-t{font-family:var(--mono);font-size:24px;font-weight:700;fill:#1B2435}
+  .svg-s{font-family:var(--text);font-size:21px;fill:#4F5663}
+  .svg-line{stroke:#16233A;stroke-width:2.5;fill:none}
+  .svg-h{font-family:var(--mono);font-size:19px;font-weight:700;letter-spacing:1.6px;fill:#4F5663}
+  .svg-b{font-family:var(--text);font-size:23px;font-weight:600;fill:#1B2435}
+  .svg-w{font-family:var(--text);font-size:19px;fill:#4F5663}
+  .svg-m{font-family:var(--mono);font-size:21px;font-weight:700;fill:#22578C}
+  .svg-k{font-family:var(--mono);font-size:22px;font-weight:700;fill:#16233A}
+  .svg-card{fill:#fff;stroke:#16233A;stroke-width:2}
+  .svg-card.auto{fill:#E4EDF7;stroke:#2C6AA8}
+  .svg-card.warm{fill:#FAEADA;stroke:#C06A1E}
+  .svg-card.plain{fill:#fff;stroke:#D8D4CB;stroke-width:2}
+  .svg-strip{fill:#E4EDF7;stroke:#BCD4EA;stroke-width:1.5}
+  .svg-line.soft{stroke:#8C9099;stroke-dasharray:8 7}
+
+  /* ---- legend ---- */
+  .legend{display:flex;gap:1.75em;align-items:center;flex:none;margin-top:0.75em}
+  .legend span{display:flex;align-items:center;gap:0.5em;font-size:0.75em;color:var(--muted)}
+  .legend i{width:0.9em;height:0.9em;border-radius:0.2em;border:2px solid var(--navy);background:#fff;flex:none}
+  .legend i.auto{border-color:var(--blue);background:var(--blue-tint)}
+  .legend i.gate{border-color:var(--amber);background:var(--amber-tint)}
+
+  /* ---- cover & statement slides ---- */
+  .slide.cover{background:var(--navy);color:var(--paper);justify-content:space-between}
+  .cover .eyebrow{color:#8FB4D9}
+  .cover h1{color:var(--paper)}
+  .cover .lede{color:#BFCBDC;max-width:42em}
+  .cover .chainline{font-family:var(--mono);font-size:0.875em;font-weight:500;color:#F2B179}
+
+  .slide.statement{background:var(--navy);color:var(--paper);justify-content:center;gap:1em}
+  .statement h2{font-size:2.75em;color:var(--paper);max-width:40em}
+  .statement .eyebrow{color:#F2B179}
+  .statement p{color:#BFCBDC;font-size:1.1875em;max-width:40em;line-height:1.4}
+  .statement .st{background:#223352;color:#CFE0F2}
+  .statement .f{color:#8FB4D9}
+  .statement .rule{width:6em;height:0.1875em;background:#F2B179;margin:0.5em 0 0.25em}
+
+  .slide.alt{background:var(--stone)}
+  .slide.alt .card{background:var(--paper)}
+
+  /* ---- print: one slide per landscape page ---- */
+  @media print{
+    @page{size:338mm 190mm;margin:0}        /* a 16:9 page, so print matches the screen */
+    html{scroll-snap-type:none;background:#fff}
+    .slide{font-size:5.07mm;width:338mm;height:190mm;aspect-ratio:auto;page-break-after:always;break-after:page}
+    .slide:last-child{page-break-after:auto}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================== 1 · COVER ============================== -->
+<section class="slide cover">
+  <p class="eyebrow">ERPNext · CRM · Internal training</p>
+  <div style="display:flex;flex-direction:column;gap:1.125em">
+    <h1>The CRM Workflow,<br>End to End</h1>
+    <p class="lede">How a Lead becomes a Customer, an Opportunity becomes a Project Tender, and a Project Tender becomes a win — and which part of that you do by hand.</p>
+  </div>
+  <p class="chainline">Lead &rarr; Customer &rarr; Opportunity &rarr; Project Tender &rarr; Won</p>
+</section>
+
+<!-- ============================== 2 · MAP ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">The whole path</p>
+    <h2>Fourteen steps, and only nine of them are yours</h2>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 1664 700" role="img" aria-label="The CRM workflow in fourteen steps across three rows: Lead created, Registration Activity, Activity set to Done, Customer created automatically, Opportunity opened, Tendering Activity, Project Tender created automatically, cost tables filled, the gate asking whether every linked Tender is Complete, Project Tender set to Submitted, the Activity closed automatically, Opportunity set to Won, the approved Project Tender picked in the pop-up, that Project Tender set to Won automatically, and the Project and Sales Order raised.">
+      <defs>
+        <marker id="ah" orient="auto" markerWidth="5" markerHeight="5" refX="2.2" refY="2" overflow="visible">
+          <path d="M0 0 L4 2 L0 4 Z" fill="#16233A"/>
+        </marker>
+      </defs>
+
+      <!-- row 1, left to right -->
+      <rect class="svg-box"      x="0"    y="0" width="300" height="110" rx="12"/>
+      <rect class="svg-box"      x="341"  y="0" width="300" height="110" rx="12"/>
+      <rect class="svg-box"      x="682"  y="0" width="300" height="110" rx="12"/>
+      <rect class="svg-box auto" x="1023" y="0" width="300" height="110" rx="12"/>
+      <rect class="svg-box"      x="1364" y="0" width="300" height="110" rx="12"/>
+      <!-- row 2, right to left -->
+      <rect class="svg-box"      x="1364" y="295" width="300" height="110" rx="12"/>
+      <rect class="svg-box auto" x="1023" y="295" width="300" height="110" rx="12"/>
+      <rect class="svg-box"      x="682"  y="295" width="300" height="110" rx="12"/>
+      <rect class="svg-box gate" x="341"  y="295" width="300" height="110" rx="12"/>
+      <rect class="svg-box"      x="0"    y="295" width="300" height="110" rx="12"/>
+      <!-- row 3, left to right -->
+      <rect class="svg-box auto" x="0"    y="590" width="300" height="110" rx="12"/>
+      <rect class="svg-box"      x="341"  y="590" width="300" height="110" rx="12"/>
+      <rect class="svg-box"      x="682"  y="590" width="300" height="110" rx="12"/>
+      <rect class="svg-box auto" x="1023" y="590" width="300" height="110" rx="12"/>
+      <rect class="svg-box auto" x="1364" y="590" width="300" height="110" rx="12"/>
+
+      <g text-anchor="middle">
+        <text class="svg-t" x="150"  y="47">1 · Lead</text>
+        <text class="svg-s" x="150"  y="80">created by you</text>
+        <text class="svg-t" x="491"  y="47">2 · Activity</text>
+        <text class="svg-s" x="491"  y="80">Type = Registration</text>
+        <text class="svg-t" x="832"  y="47">3 · Status</text>
+        <text class="svg-s" x="832"  y="80">set to Done</text>
+        <text class="svg-t" x="1173" y="47">4 · Customer</text>
+        <text class="svg-s" x="1173" y="80">created for you</text>
+        <text class="svg-t" x="1514" y="47">5 · Opportunity</text>
+        <text class="svg-s" x="1514" y="80">opened on it</text>
+
+        <text class="svg-t" x="1514" y="342">6 · Activity</text>
+        <text class="svg-s" x="1514" y="375">Type = Tendering</text>
+        <text class="svg-t" x="1173" y="342">7 · Project Tender</text>
+        <text class="svg-s" x="1173" y="375">created for you</text>
+        <text class="svg-t" x="832"  y="342">8 · Costing</text>
+        <text class="svg-s" x="832"  y="375">three tables filled</text>
+        <text class="svg-t" x="491"  y="342" style="fill:#9E4F12">GATE</text>
+        <text class="svg-s" x="491"  y="375" style="fill:#9E4F12">all Tenders Complete?</text>
+        <text class="svg-t" x="150"  y="342">9 · Submitted</text>
+        <text class="svg-s" x="150"  y="375">you set the status</text>
+
+        <text class="svg-t" x="150"  y="637">10 · Activity</text>
+        <text class="svg-s" x="150"  y="670">closed for you</text>
+        <text class="svg-t" x="491"  y="637">11 · Opportunity</text>
+        <text class="svg-s" x="491"  y="670">status set to Won</text>
+        <text class="svg-t" x="832"  y="637">12 · Pop-up</text>
+        <text class="svg-s" x="832"  y="670">pick the tender</text>
+        <text class="svg-t" x="1173" y="637">13 · That Tender</text>
+        <text class="svg-s" x="1173" y="670">set to Won</text>
+        <text class="svg-t" x="1514" y="637">14 · Project</text>
+        <text class="svg-s" x="1514" y="670">+ Sales Order</text>
+      </g>
+
+      <g class="svg-line" marker-end="url(#ah)">
+        <path d="M300 55 H341"/><path d="M641 55 H682"/><path d="M982 55 H1023"/><path d="M1323 55 H1364"/>
+        <path d="M1514 110 V295"/>
+        <path d="M1364 350 H1323"/><path d="M1023 350 H982"/><path d="M682 350 H641"/><path d="M341 350 H300"/>
+        <path d="M150 405 V590"/>
+        <path d="M300 645 H341"/><path d="M641 645 H682"/><path d="M982 645 H1023"/><path d="M1323 645 H1364"/>
+      </g>
+    </svg>
+  </div>
+  <div class="legend">
+    <span><i></i> You do this by hand</span>
+    <span><i class="auto"></i> The system does it on save</span>
+    <span><i class="gate"></i> A condition that will block you</span>
+  </div>
+</section>
+
+<!-- ============================== 3 · AUTOMATION SUMMARY ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">What the system does for you</p>
+    <h2>Eight automations, and what sets each one off</h2>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 1664 740" role="img" aria-label="Eight rows pairing what you save with what the system does immediately: a Registration Activity on a Lead moves the Lead to In Process; any Activity set to Done marks the Lead Qualified; the Registration Activity set to Done creates the Customer, marks the Lead Converted and stamps its Date of Convert; a Tendering Activity on an Opportunity creates the Project Tender and moves the Opportunity to Tendering; a Tender raised under a Project Tender takes its Submission Deadline from the Opportunity's Expected Closing Date; a Tender marked Complete is stamped with a Completion Date shown on its Project Tender row; a Project Tender set to Submitted marks its Tendering Activity Done and stamps a Submitted Date; and an Opportunity saved as Won sets the approved tender to Won, raises its Project and Sales Order and stamps a Won Date on both.">
+      <defs><marker id="ah3" orient="auto" markerWidth="5" markerHeight="5" refX="2.2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" fill="#16233A"/></marker></defs>
+      <text class="svg-h" x="0" y="26">WHAT YOU SAVE</text>
+      <text class="svg-h" x="1044" y="26" style="fill:#22578C">WHAT THE SYSTEM DOES, ON THAT SAVE</text>
+      <rect class="svg-card" x="0" y="58" width="620" height="72" rx="12"/>
+      <rect class="svg-card auto" x="1044" y="58" width="620" height="72" rx="12"/>
+      <path class="svg-line" d="M620 94 H792"/>
+      <path class="svg-line" d="M872 94 H1044" marker-end="url(#ah3)"/>
+      <rect x="796" y="79" width="72" height="30" rx="15" fill="#F7F6F3" stroke="#2C6AA8" stroke-width="2"/>
+      <text class="svg-h" x="832" y="100" text-anchor="middle" style="font-size:16px;fill:#22578C">AUTO</text>
+      <text class="svg-b" x="26" y="101">A <tspan class="svg-m">Registration</tspan> Activity on a Lead</text>
+      <text class="svg-b" x="1070" y="101">Lead &#8594; <tspan class="svg-m">In Process</tspan></text>
+      <rect class="svg-card" x="0" y="142" width="620" height="72" rx="12"/>
+      <rect class="svg-card auto" x="1044" y="142" width="620" height="72" rx="12"/>
+      <path class="svg-line" d="M620 178 H792"/>
+      <path class="svg-line" d="M872 178 H1044" marker-end="url(#ah3)"/>
+      <rect x="796" y="163" width="72" height="30" rx="15" fill="#F7F6F3" stroke="#2C6AA8" stroke-width="2"/>
+      <text class="svg-h" x="832" y="184" text-anchor="middle" style="font-size:16px;fill:#22578C">AUTO</text>
+      <text class="svg-b" x="26" y="185"><tspan class="svg-m">Any</tspan> Activity on a Lead set to <tspan class="svg-m">Done</tspan></text>
+      <text class="svg-b" x="1070" y="185">Lead &#8594; <tspan class="svg-m">Qualified</tspan></text>
+      <rect class="svg-card" x="0" y="226" width="620" height="72" rx="12"/>
+      <rect class="svg-card auto" x="1044" y="226" width="620" height="72" rx="12"/>
+      <path class="svg-line" d="M620 262 H792"/>
+      <path class="svg-line" d="M872 262 H1044" marker-end="url(#ah3)"/>
+      <rect x="796" y="247" width="72" height="30" rx="15" fill="#F7F6F3" stroke="#2C6AA8" stroke-width="2"/>
+      <text class="svg-h" x="832" y="268" text-anchor="middle" style="font-size:16px;fill:#22578C">AUTO</text>
+      <text class="svg-b" x="26" y="269">That Registration Activity &#8594; <tspan class="svg-m">Done</tspan></text>
+      <text class="svg-b" x="1070" y="256"><tspan class="svg-m">Customer</tspan> created &#183; Lead &#8594; <tspan class="svg-m">Converted</tspan>,</text>
+      <text class="svg-b" x="1070" y="284"><tspan class="svg-m">Date of Convert</tspan> stamped</text>
+      <rect class="svg-card" x="0" y="310" width="620" height="72" rx="12"/>
+      <rect class="svg-card auto" x="1044" y="310" width="620" height="72" rx="12"/>
+      <path class="svg-line" d="M620 346 H792"/>
+      <path class="svg-line" d="M872 346 H1044" marker-end="url(#ah3)"/>
+      <rect x="796" y="331" width="72" height="30" rx="15" fill="#F7F6F3" stroke="#2C6AA8" stroke-width="2"/>
+      <text class="svg-h" x="832" y="352" text-anchor="middle" style="font-size:16px;fill:#22578C">AUTO</text>
+      <text class="svg-b" x="26" y="353">A <tspan class="svg-m">Tendering</tspan> Activity on an Opportunity</text>
+      <text class="svg-b" x="1070" y="340"><tspan class="svg-m">Project Tender</tspan> created,</text>
+      <text class="svg-b" x="1070" y="368">Opportunity &#8594; <tspan class="svg-m">Tendering</tspan></text>
+      <rect class="svg-card" x="0" y="394" width="620" height="72" rx="12"/>
+      <rect class="svg-card auto" x="1044" y="394" width="620" height="72" rx="12"/>
+      <path class="svg-line" d="M620 430 H792"/>
+      <path class="svg-line" d="M872 430 H1044" marker-end="url(#ah3)"/>
+      <rect x="796" y="415" width="72" height="30" rx="15" fill="#F7F6F3" stroke="#2C6AA8" stroke-width="2"/>
+      <text class="svg-h" x="832" y="436" text-anchor="middle" style="font-size:16px;fill:#22578C">AUTO</text>
+      <text class="svg-b" x="26" y="437">A <tspan class="svg-m">Tender</tspan> raised under a Project Tender</text>
+      <text class="svg-b" x="1070" y="424">Its <tspan class="svg-m">Submission Deadline</tspan> is filled from the</text>
+      <text class="svg-b" x="1070" y="452">Opportunity&#8217;s <tspan class="svg-m">Expected Closing Date</tspan></text>
+      <rect class="svg-card" x="0" y="478" width="620" height="72" rx="12"/>
+      <rect class="svg-card auto" x="1044" y="478" width="620" height="72" rx="12"/>
+      <path class="svg-line" d="M620 514 H792"/>
+      <path class="svg-line" d="M872 514 H1044" marker-end="url(#ah3)"/>
+      <rect x="796" y="499" width="72" height="30" rx="15" fill="#F7F6F3" stroke="#2C6AA8" stroke-width="2"/>
+      <text class="svg-h" x="832" y="520" text-anchor="middle" style="font-size:16px;fill:#22578C">AUTO</text>
+      <text class="svg-b" x="26" y="521">A Tender marked <tspan class="svg-m">Complete</tspan></text>
+      <text class="svg-b" x="1070" y="508"><tspan class="svg-m">Completion Date</tspan> stamped, and shown</text>
+      <text class="svg-b" x="1070" y="536">on its row in the Project Tender</text>
+      <rect class="svg-card" x="0" y="562" width="620" height="72" rx="12"/>
+      <rect class="svg-card auto" x="1044" y="562" width="620" height="72" rx="12"/>
+      <path class="svg-line" d="M620 598 H792"/>
+      <path class="svg-line" d="M872 598 H1044" marker-end="url(#ah3)"/>
+      <rect x="796" y="583" width="72" height="30" rx="15" fill="#F7F6F3" stroke="#2C6AA8" stroke-width="2"/>
+      <text class="svg-h" x="832" y="604" text-anchor="middle" style="font-size:16px;fill:#22578C">AUTO</text>
+      <text class="svg-b" x="26" y="605">The Project Tender &#8594; <tspan class="svg-m">Submitted</tspan></text>
+      <text class="svg-b" x="1070" y="592">Its Tendering Activity &#8594; <tspan class="svg-m">Done</tspan>,</text>
+      <text class="svg-b" x="1070" y="620"><tspan class="svg-m">Submitted Date</tspan> stamped</text>
+      <rect class="svg-card" x="0" y="646" width="620" height="72" rx="12"/>
+      <rect class="svg-card auto" x="1044" y="646" width="620" height="72" rx="12"/>
+      <path class="svg-line" d="M620 682 H792"/>
+      <path class="svg-line" d="M872 682 H1044" marker-end="url(#ah3)"/>
+      <rect x="796" y="667" width="72" height="30" rx="15" fill="#F7F6F3" stroke="#2C6AA8" stroke-width="2"/>
+      <text class="svg-h" x="832" y="688" text-anchor="middle" style="font-size:16px;fill:#22578C">AUTO</text>
+      <text class="svg-b" x="26" y="689">The Opportunity saved as <tspan class="svg-m">Won</tspan></text>
+      <text class="svg-b" x="1070" y="676">The approved tender &#8594; <tspan class="svg-m">Won</tspan> + its Project</text>
+      <text class="svg-b" x="1070" y="704">and Sales Order &#183; <tspan class="svg-m">Won Date</tspan> on both</text>
+    </svg>
+  </div>
+  <p class="small">Every one of these fires on save &#8212; nothing waits for a nightly job, and nothing needs a button pressed afterwards. The dates are stamped once, on the save that moves the status, and never change afterwards. One gate goes with the last row: the pop-up that asks which tender was approved offers only tenders that are <b>Submitted</b>.</p>
+</section>
+
+<!-- ============================== 4 · BACKGROUND AUTOMATION ============================== -->
+<section class="slide alt">
+  <div class="head">
+    <p class="eyebrow">Running quietly in the background</p>
+    <h2>The parts of each record that fill themselves</h2>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 1664 754" role="img" aria-label="Three record cards. The Lead fills its Activities table, its Contacts table, its Qualification Status and its Date of Convert. The Opportunity fills its Activities table, its Project Tenders table with their stage dates, its Contacts table and its Won Date. The Project Tender fills its Client, its Direct Cost Details, its links back to the Opportunity and Leads Activity, and its Submitted, Won and per-Tender Completion dates. Below, two notes: editing a Tender pushes its totals into every Project Tender that lists it, and every automatic step leaves a comment linking back to its trigger.">
+      <rect class="svg-card plain" x="0" y="0" width="520" height="584" rx="16"/>
+      <text class="svg-k" x="28" y="42" style="font-size:25px">Lead</text>
+      <path d="M24 64 H496" stroke="#D8D4CB" stroke-width="2" fill="none"/>
+      <rect class="svg-strip" x="24" y="88" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="48" y="124">Activities</text>
+      <text class="svg-w" x="48" y="156">its own Activities, oldest first,</text>
+      <text class="svg-w" x="48" y="182">rebuilt on every save and delete</text>
+      <rect class="svg-strip" x="24" y="212" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="48" y="248">Contacts</text>
+      <text class="svg-w" x="48" y="280">its own, plus every Opportunity&#8217;s</text>
+      <text class="svg-w" x="48" y="306">and the Customer&#8217;s it became</text>
+      <rect class="svg-strip" x="24" y="336" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="48" y="372">Qualification Status</text>
+      <text class="svg-w" x="48" y="404">moved by its Activities,</text>
+      <text class="svg-w" x="48" y="430">never by hand</text>
+      <rect class="svg-strip" x="24" y="460" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="48" y="496">Date of Convert</text>
+      <text class="svg-w" x="48" y="528">the day it became Converted,</text>
+      <text class="svg-w" x="48" y="554">by whichever route got it there</text>
+      <rect class="svg-card plain" x="572" y="0" width="520" height="584" rx="16"/>
+      <text class="svg-k" x="600" y="42" style="font-size:25px">Opportunity</text>
+      <path d="M596 64 H1068" stroke="#D8D4CB" stroke-width="2" fill="none"/>
+      <rect class="svg-strip" x="596" y="88" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="620" y="124">Activities</text>
+      <text class="svg-w" x="620" y="156">its own Activities, oldest first</text>
+      <rect class="svg-strip" x="596" y="212" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="620" y="248">Project Tenders</text>
+      <text class="svg-w" x="620" y="280">every tender it raised, with its</text>
+      <text class="svg-w" x="620" y="306">status, value and stage dates</text>
+      <rect class="svg-strip" x="596" y="336" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="620" y="372">Contacts</text>
+      <text class="svg-w" x="620" y="404">its own contacts only, so the deal&#8217;s</text>
+      <text class="svg-w" x="620" y="430">list stays clean</text>
+      <rect class="svg-strip" x="596" y="460" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="620" y="496">Won Date</text>
+      <text class="svg-w" x="620" y="528">the day it was won, beside the</text>
+      <text class="svg-w" x="620" y="554">tender that was approved</text>
+      <rect class="svg-card plain" x="1144" y="0" width="520" height="584" rx="16"/>
+      <text class="svg-k" x="1172" y="42" style="font-size:25px">Project Tender</text>
+      <path d="M1168 64 H1640" stroke="#D8D4CB" stroke-width="2" fill="none"/>
+      <rect class="svg-strip" x="1168" y="88" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="1192" y="124">Client</text>
+      <text class="svg-w" x="1192" y="156">from the Opportunity &#8212; a Lead or</text>
+      <text class="svg-w" x="1192" y="182">Prospect is converted first</text>
+      <rect class="svg-strip" x="1168" y="212" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="1192" y="248">Direct Cost Details</text>
+      <text class="svg-w" x="1192" y="280">Tenders join while Draft or Under</text>
+      <text class="svg-w" x="1192" y="306">Review; a Cancelled one leaves</text>
+      <rect class="svg-strip" x="1168" y="336" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="1192" y="372">Opportunity &#183; Leads Activity</text>
+      <text class="svg-w" x="1192" y="404">the link back to what created it</text>
+      <rect class="svg-strip" x="1168" y="460" width="472" height="108" rx="10"/>
+      <text class="svg-m" x="1192" y="496">Submitted &#183; Won &#183; Completion dates</text>
+      <text class="svg-w" x="1192" y="528">stamped as each status is reached,</text>
+      <text class="svg-w" x="1192" y="554">the last one per Tender in the table</text>
+      <rect class="svg-card plain" x="0" y="624" width="810" height="130" rx="14"/>
+      <rect x="0" y="624" width="7" height="130" rx="3" fill="#2C6AA8"/>
+      <text class="svg-b" x="32" y="668">Totals stay in step</text>
+      <text class="svg-w" x="32" y="702">Edit a Tender and its cost and sell amounts are pushed into</text>
+      <text class="svg-w" x="32" y="728">every Project Tender that lists it, and the totals recalculated.</text>
+      <rect class="svg-card plain" x="854" y="624" width="810" height="130" rx="14"/>
+      <rect x="854" y="624" width="7" height="130" rx="3" fill="#2C6AA8"/>
+      <text class="svg-b" x="886" y="668">An audit trail throughout</text>
+      <text class="svg-w" x="886" y="702">Every automatic step leaves a comment on the record it</text>
+      <text class="svg-w" x="886" y="728">changed, with a link back to whatever triggered it.</text>
+    </svg>
+  </div>
+  <p class="small">Nothing here is yours to keep up to date. The blue blocks are rebuilt by the system every time something they depend on is saved &#8212; and the dates among them are written once, the day each status is reached.</p>
+</section>
+
+<!-- ============================== 5 · WHERE AUTOMATION STOPS ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">The other half of the picture</p>
+    <h2>The line the automation does not cross</h2>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 1664 620" role="img" aria-label="A dashed line divides the slide. On your side: attaching the paperwork, setting Customer Group and Territory on the Lead, marking every Tender Complete, saving after the pop-up, and choosing Lost, Cancelled or Superseded. On the system's side, the only four statuses it sets by itself: the Lead's Qualification Status, the Opportunity's Tendering, the Leads Activity's Done, and the Project Tender's Won.">
+      <path d="M832 44 V612" stroke="#C06A1E" stroke-width="3" stroke-dasharray="10 9" fill="none"/>
+      <text class="svg-h" x="0" y="26" style="fill:#9E4F12">ALWAYS YOURS</text>
+      <text class="svg-h" x="894" y="26" style="fill:#22578C">ALWAYS THE SYSTEM&#8217;S</text>
+      <rect class="svg-card warm" x="0" y="56" width="770" height="96" rx="12"/>
+      <text class="svg-b" x="28" y="98" style="fill:#9E4F12">Attach the paperwork</text>
+      <text class="svg-w" x="28" y="128">no Activity on a Lead or Opportunity saves without a file</text>
+      <rect class="svg-card warm" x="0" y="166" width="770" height="96" rx="12"/>
+      <text class="svg-b" x="28" y="208" style="fill:#9E4F12">Customer Group and Territory</text>
+      <text class="svg-w" x="28" y="238">on the Lead &#8212; the Customer is built from them</text>
+      <rect class="svg-card warm" x="0" y="276" width="770" height="96" rx="12"/>
+      <text class="svg-b" x="28" y="318" style="fill:#9E4F12">Mark Complete on every Tender</text>
+      <text class="svg-w" x="28" y="348">nothing completes a Tender for you</text>
+      <rect class="svg-card warm" x="0" y="386" width="770" height="96" rx="12"/>
+      <text class="svg-b" x="28" y="428" style="fill:#9E4F12">Save after the pop-up</text>
+      <text class="svg-w" x="28" y="458">approving only fills a field; the save does the work</text>
+      <rect class="svg-card warm" x="0" y="496" width="770" height="96" rx="12"/>
+      <text class="svg-b" x="28" y="538" style="fill:#9E4F12">Lost &#183; Cancelled &#183; Superseded</text>
+      <text class="svg-w" x="28" y="568">a tender that came to nothing is closed by a person</text>
+      <rect class="svg-card auto" x="894" y="90" width="770" height="96" rx="12"/>
+      <text class="svg-b" x="922" y="132">Lead &#183; Qualification Status</text>
+      <text class="svg-w" x="922" y="162"><tspan class="svg-m">In Process</tspan>, then <tspan class="svg-m">Qualified</tspan></text>
+      <rect class="svg-card auto" x="894" y="228" width="770" height="96" rx="12"/>
+      <text class="svg-b" x="922" y="270">Opportunity &#183; Status</text>
+      <text class="svg-w" x="922" y="300"><tspan class="svg-m">Tendering</tspan>, when its first tender is created</text>
+      <rect class="svg-card auto" x="894" y="366" width="770" height="96" rx="12"/>
+      <text class="svg-b" x="922" y="408">Leads Activity &#183; Status</text>
+      <text class="svg-w" x="922" y="438"><tspan class="svg-m">Done</tspan>, when its Project Tender is <tspan class="svg-m">Submitted</tspan></text>
+      <rect class="svg-card auto" x="894" y="504" width="770" height="96" rx="12"/>
+      <text class="svg-b" x="922" y="546">Project Tender &#183; Status</text>
+      <text class="svg-w" x="922" y="576"><tspan class="svg-m">Won</tspan>, when its Opportunity is saved as Won</text>
+    </svg>
+  </div>
+  <p class="small"><b>Four statuses are set for you</b> &#8212; the four on the right. Every other status in the system is a choice somebody makes.</p>
+</section>
+
+<!-- ============================== 6 · RECORDS ============================== -->
+<section class="slide alt">
+  <div class="head">
+    <p class="eyebrow">The cast</p>
+    <h2>Six records, and who creates each one</h2>
+  </div>
+  <div class="body">
+    <table>
+      <tr>
+        <th style="width:21%">Record</th>
+        <th style="width:47%">What it holds</th>
+        <th style="width:32%">Who creates it</th>
+      </tr>
+      <tr>
+        <td><b>Lead</b></td>
+        <td>The enquiry and the people behind it</td>
+        <td>You</td>
+      </tr>
+      <tr>
+        <td><b>Leads Activity</b></td>
+        <td>One touchpoint — a call, a meeting, a site visit, a registration, a tendering step</td>
+        <td>You, from the Lead, Customer or Opportunity</td>
+      </tr>
+      <tr>
+        <td><b>Customer</b></td>
+        <td>The registered client, with the Lead's contacts and addresses carried over</td>
+        <td><b>The system</b>, when a <span class="st">Registration</span> Activity reaches <span class="st ok">Done</span></td>
+      </tr>
+      <tr>
+        <td><b>Opportunity</b></td>
+        <td>The deal you are pricing for that Customer</td>
+        <td>You, on the Customer</td>
+      </tr>
+      <tr>
+        <td><b>Project Tender</b></td>
+        <td>The priced offer that goes to the client, and its cost build-up</td>
+        <td><b>The system</b>, when you save a <span class="st">Tendering</span> Activity</td>
+      </tr>
+      <tr>
+        <td><b>Tender</b></td>
+        <td>One trade's BOQ, listed in the Project Tender's <span class="f">Direct Cost Details</span></td>
+        <td>The estimation team</td>
+      </tr>
+    </table>
+    <p class="small" style="font-size:0.8125em"><b>Read the direction of travel.</b> You never create a Customer or a Project Tender yourself, and you never set an Activity to Done because a tender went out. Fill the record in front of you, save it, and the next record appears.</p>
+  </div>
+</section>
+
+<!-- ============================== 7 · LEAD ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">Step 1 of 9 · you</p>
+    <h2>Create the Lead</h2>
+  </div>
+  <div class="body">
+    <div class="row wide">
+      <div class="card">
+        <span class="n">FILL IN</span>
+        <h3>Who the enquiry is from</h3>
+        <p>Lead Name and Organization, plus the contacts in the Lead's own contacts table.</p>
+      </div>
+      <div class="card">
+        <span class="n">FILL IN — DO NOT SKIP</span>
+        <h3><span class="f">Customer Group</span> and <span class="f">Territory</span></h3>
+        <p>The Customer is built from these two fields later. Leave them empty and the conversion in step 3 fails.</p>
+      </div>
+      <div class="card">
+        <span class="n">LEAVE ALONE</span>
+        <h3><span class="f">Qualification Status</span></h3>
+        <p>Starts at <span class="st">Unqualified</span>. Your Activities move it — you never set it by hand.</p>
+      </div>
+    </div>
+    <div class="note warn">
+      <p><span class="h">If you skip Customer Group or Territory</span> the Registration Activity in step 3 stops with <i>“Cannot convert Lead … to a Customer: no Customer Group and Territory.”</i> Set them on the Lead, save it, then set the Activity to <span class="st ok">Done</span> again.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 8 · ACTIVITY ANATOMY ============================== -->
+<section class="slide alt">
+  <div class="head">
+    <p class="eyebrow">Step 2 of 9 · you</p>
+    <h2>Log an Activity — the record that drives everything</h2>
+  </div>
+  <div class="body top">
+    <p class="small" style="font-size:0.9375em">Open the Lead and use <b>Create &rarr; Activity</b>, or <b>New Activity</b> on the Activities tab. Two fields decide what the system does next.</p>
+    <div class="row wide">
+      <div class="card" style="border-color:var(--blue);border-width:2px">
+        <span class="n">THE FIELD THAT DECIDES</span>
+        <h3><span class="f">Type</span></h3>
+        <p style="line-height:1.9">
+          <span class="st">Call</span> <span class="st">Meeting</span> <span class="st">Site Visit</span>
+          <span class="st go">Registration</span> <span class="st go">Tendering</span> <span class="st">Other</span>
+        </p>
+        <p><b>Registration</b> creates the Customer. <b>Tendering</b> creates the Project Tender. The other four are just a record of the contact.</p>
+      </div>
+      <div class="card" style="border-color:var(--blue);border-width:2px">
+        <span class="n">THE FIELD THAT FIRES IT</span>
+        <h3><span class="f">Status</span></h3>
+        <p style="line-height:1.9">
+          <span class="st">Planned</span> <span class="st">In Process</span> <span class="st ok">Done</span>
+          <span class="st">Failed</span> <span class="st">Closed</span> <span class="st">Waiting Reply</span>
+        </p>
+        <p>Defaults to <b>Planned</b>. <b>Done</b> is the trigger — nothing else in this list sets anything off.</p>
+      </div>
+      <div class="card">
+        <span class="n">THE REST</span>
+        <h3><span class="f">Date</span>, <span class="f">Assigned To</span>, <span class="f">Link Type</span>, <span class="f">Link</span>, <span class="f">Attachments</span></h3>
+        <p><span class="f">Link Type</span> is <span class="st">Lead</span>, <span class="st">Prospect</span> or <span class="st">Opportunity</span>, and <span class="f">Link</span> is the record itself. Both are filled for you when you use the buttons above.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 9 · ATTACHMENT RULE ============================== -->
+<section class="slide statement">
+  <p class="eyebrow">The rule that catches everyone first</p>
+  <h2>No attachment, no save.</h2>
+  <div class="rule"></div>
+  <p>Every Activity on a <b>Lead</b> or an <b>Opportunity</b> needs at least one file in <span class="f">Attachments</span>, whatever its Type. A <span class="st">Registration</span> Activity needs one wherever it is linked — it is the paperwork the Customer is created from. The Opportunity itself will not save without an attachment either.</p>
+  <p style="font-size:1em;color:#8FB4D9">An attachment row with no file in it does not count. If the message says <bdi class="ar">مرفق مطلوب</bdi> (<i>attachment required</i>), you have an empty row, not a file.</p>
+</section>
+
+<!-- ============================== 10 · REGISTRATION ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">Step 3 of 9 · you set the status, the system converts</p>
+    <h2>Registration turns the Lead into a Customer</h2>
+  </div>
+  <div class="body">
+    <div class="row wide">
+      <div class="card">
+        <span class="n">YOU — ON CREATION</span>
+        <h3>Save a <span class="f">Type</span> = <span class="st go">Registration</span> Activity on the Lead</h3>
+        <p>The Lead's <span class="f">Qualification Status</span> moves to <span class="st">In Process</span>. This happens once, when the Activity is first created.</p>
+      </div>
+      <div class="card">
+        <span class="n">YOU — WHEN IT IS SETTLED</span>
+        <h3>Set that Activity's <span class="f">Status</span> to <span class="st ok">Done</span></h3>
+        <p>Attach the registration document first, then save. This is the only action in the whole stage that converts anything.</p>
+      </div>
+      <div class="card auto">
+        <span class="n">THE SYSTEM — ON THAT SAVE</span>
+        <h3>Customer created, Lead <span class="st">Converted</span></h3>
+        <p><span class="f">Qualification Status</span> becomes <span class="st ok">Qualified</span>, the Customer is created from the Lead with its contacts and addresses, and a comment on the Lead records who did it.</p>
+      </div>
+    </div>
+    <div class="note">
+      <p><span class="h">Two separate effects, easy to confuse.</span> <b>Any</b> Activity reaching <span class="st ok">Done</span> marks the Lead <span class="st ok">Qualified</span>. Only a <span class="st go">Registration</span> Activity reaching <span class="st ok">Done</span> also creates the Customer. Re-saving it never creates a second Customer.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 11 · ACTIVITY STATE DIAGRAM ============================== -->
+<section class="slide alt">
+  <div class="head">
+    <p class="eyebrow">State diagram · Leads Activity</p>
+    <h2>Six statuses, one of them with consequences</h2>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 1664 620" role="img" aria-label="State diagram of the Leads Activity status. Planned leads to In Process or Waiting Reply. Waiting Reply returns to In Process when the client replies. In Process leads to Done or Failed. Waiting Reply can also end at Closed. Done is the status that triggers the automation.">
+      <defs>
+        <marker id="ah2" orient="auto" markerWidth="5" markerHeight="5" refX="2.2" refY="2" overflow="visible">
+          <path d="M0 0 L4 2 L0 4 Z" fill="#16233A"/>
+        </marker>
+      </defs>
+
+      <rect class="svg-box"      x="0"    y="250" width="380" height="120" rx="14"/>
+      <rect class="svg-box"      x="642"  y="120" width="380" height="120" rx="14"/>
+      <rect class="svg-box"      x="642"  y="380" width="380" height="120" rx="14"/>
+      <rect class="svg-box done" x="1284" y="60"  width="380" height="140" rx="14"/>
+      <rect class="svg-box"      x="1284" y="260" width="380" height="100" rx="14"/>
+      <rect class="svg-box"      x="1284" y="420" width="380" height="100" rx="14"/>
+      <rect x="0" y="430" width="480" height="170" rx="14" fill="#E4EDF7" stroke="#2C6AA8" stroke-width="2"/>
+
+      <g text-anchor="middle">
+        <text class="svg-t" x="190"  y="300">Planned</text>
+        <text class="svg-s" x="190"  y="333">the default on a new Activity</text>
+        <text class="svg-t" x="832"  y="170">In Process</text>
+        <text class="svg-s" x="832"  y="203">being worked on</text>
+        <text class="svg-t" x="832"  y="430">Waiting Reply</text>
+        <text class="svg-s" x="832"  y="463">ball is with the client</text>
+        <text class="svg-t" x="1474" y="110" style="fill:#2C5A28">Done</text>
+        <text class="svg-s" x="1474" y="143" style="fill:#2C5A28">the trigger — see below</text>
+        <text class="svg-s" x="1474" y="173" style="fill:#2C5A28">also set for you in step 7</text>
+        <text class="svg-t" x="1474" y="303">Failed</text>
+        <text class="svg-s" x="1474" y="336">came to nothing</text>
+        <text class="svg-t" x="1474" y="463">Closed</text>
+        <text class="svg-s" x="1474" y="496">dropped, no outcome</text>
+      </g>
+      <g>
+        <text class="svg-t" x="28" y="472" style="font-size:21px;fill:#22578C">WHAT “DONE” DOES</text>
+        <text class="svg-s" x="28" y="508">Any Activity &rarr; Done marks the Lead</text>
+        <text class="svg-s" x="28" y="536">Qualified. A Registration Activity</text>
+        <text class="svg-s" x="28" y="564">&rarr; Done also creates the Customer.</text>
+      </g>
+
+      <g class="svg-line" marker-end="url(#ah2)">
+        <path d="M380 280 H511 V180 H642"/>
+        <path d="M380 340 H511 V440 H642"/>
+        <path d="M1022 170 H1153 V130 H1284"/>
+        <path d="M1022 200 H1153 V310 H1284"/>
+        <path d="M832 380 V240"/>
+        <path d="M1022 440 H1153 V470 H1284"/>
+      </g>
+      <text class="svg-s" x="856" y="320" style="fill:#4F5663">client replies</text>
+    </svg>
+  </div>
+  <p class="small">Statuses are a plain dropdown: any of them can be chosen at any time. Nothing except <b>Done</b> starts an automation.</p>
+</section>
+
+<!-- ============================== 12 · OPPORTUNITY ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">Step 4 of 9 · you</p>
+    <h2>Open the Opportunity on the Customer</h2>
+  </div>
+  <div class="body">
+    <div class="row wide">
+      <div class="card">
+        <span class="n">WHERE</span>
+        <h3>On the Customer, not the Lead</h3>
+        <p><span class="f">Opportunity From</span> = <span class="st">Customer</span> and <span class="f">Party Name</span> = the Customer created in step 3.</p>
+      </div>
+      <div class="card">
+        <span class="n">FILL IN</span>
+        <h3><span class="f">Targeted Amount</span> and <span class="f">Opportunity Breakdown</span></h3>
+        <p>Each breakdown row takes a <span class="f">Contribution Type</span> of <span class="st">Percentage</span> or <span class="st">Fixed Amount</span>; <span class="f">Final Value</span> is worked out for you as you type.</p>
+      </div>
+      <div class="card">
+        <span class="n">FILL IN</span>
+        <h3>At least one <span class="f">Attachment</span></h3>
+        <p>The Opportunity follows the same rule as an Activity: it will not save empty-handed.</p>
+      </div>
+      <div class="card">
+        <span class="n">THEN</span>
+        <h3>Log Activities here too</h3>
+        <p>Same buttons, same rules. <span class="f">Link Type</span> is now <span class="st">Opportunity</span>, and the Opportunity keeps its own Activities table.</p>
+      </div>
+    </div>
+    <div class="note">
+      <p><span class="h">Contact Person lists the Opportunity's own contacts</span>, not everyone attached to the Customer. Add the contact on the Opportunity if you cannot find them.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 13 · TENDERING ============================== -->
+<section class="slide alt">
+  <div class="head">
+    <p class="eyebrow">Step 5 of 9 · you log it, the system builds it</p>
+    <h2>A Tendering Activity creates the Project Tender</h2>
+  </div>
+  <div class="body">
+    <div class="row wide">
+      <div class="card">
+        <span class="n">YOU</span>
+        <h3>Activity with <span class="f">Type</span> = <span class="st go">Tendering</span> on the Opportunity</h3>
+        <p>Attach the invitation to tender, then <b>Save</b>. The Status can still be <span class="st">Planned</span> — it is the <b>save</b> that builds the tender, not the status.</p>
+      </div>
+      <div class="card auto">
+        <span class="n">THE SYSTEM — ON THAT SAVE</span>
+        <h3>One Project Tender, named after the Opportunity</h3>
+        <p><span class="f">Project Name</span> = the Opportunity's <span class="f">Title</span>, <span class="f">Client</span> = the Customer, and <span class="f">Opportunity</span> + <span class="f">Leads Activity</span> point back to where it came from.</p>
+      </div>
+      <div class="card auto">
+        <span class="n">THE SYSTEM — AT THE SAME TIME</span>
+        <h3>Opportunity <span class="f">Status</span> &rarr; <span class="st go">Tendering</span></h3>
+        <p>A green message gives you the link to the new Project Tender, and it is listed on the Opportunity's <b>Project Tender</b> tab.</p>
+      </div>
+    </div>
+    <div class="note">
+      <p><span class="h">One Activity, one Project Tender.</span> Re-saving the Activity, or switching its Type away and back, never creates a second one. Need a second tender on the same Opportunity? Log a <b>second</b> Tendering Activity.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 14 · COSTING ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">Step 6 of 9 · you and the estimation team</p>
+    <h2>Cost the Project Tender</h2>
+  </div>
+  <div class="body">
+    <div class="row wide">
+      <div class="card">
+        <span class="n">TABLE 1</span>
+        <h3><span class="f">Direct Cost Details</span></h3>
+        <p>One row per <b>Tender</b> — the trade packages this price is built from. No Tender may appear twice.</p>
+      </div>
+      <div class="card">
+        <span class="n">TABLE 2</span>
+        <h3><span class="f">Indirect Cost Details</span></h3>
+        <p>Site overheads and everything else that is not a trade package.</p>
+      </div>
+      <div class="card">
+        <span class="n">TABLE 3</span>
+        <h3><span class="f">Overhead / Deduction Details</span></h3>
+        <p>Overhead, profit and deductions, as a percentage or an amount.</p>
+      </div>
+      <div class="card gate" style="flex:1.6">
+        <span class="n">AND IN EACH TENDER</span>
+        <h3>Press <b>Mark Complete</b></h3>
+        <p>Each Tender runs <span class="st">Draft</span> &rarr; <span class="st">In Progress</span> &rarr; <span class="st ok">Complete</span>. Until it is <b>Complete</b>, its BOQ can still move the Project Tender's totals.</p>
+      </div>
+    </div>
+    <div class="note warn">
+      <p><span class="h">This is the work the next slide checks.</span> All three tables need at least one row, and every Tender in <span class="f">Direct Cost Details</span> must be <span class="st ok">Complete</span>, before the Project Tender can leave the office.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 15 · THE GATE ============================== -->
+<section class="slide statement">
+  <p class="eyebrow">The decision point · where most errors happen</p>
+  <h2><span class="st" style="font-size:0.7em;vertical-align:0.12em">Submitted</span> and <span class="st" style="font-size:0.7em;vertical-align:0.12em">Won</span> are gated.</h2>
+  <div class="rule"></div>
+  <p>A Project Tender will <b>refuse to save</b> into either status until both conditions hold:</p>
+  <p style="display:flex;gap:1.5em;margin-top:0.25em">
+    <span style="flex:1;border-left:0.1875em solid #F2B179;padding-left:0.75em"><b>1 · Every Tender</b> in <span class="f">Direct Cost Details</span> is <span class="st">Complete</span>.<br><span style="font-size:0.75em;color:#8FB4D9">Error: “Linked Tender not Complete”, naming the row and the status it is in.</span></span>
+    <span style="flex:1;border-left:0.1875em solid #F2B179;padding-left:0.75em"><b>2 · All three cost tables</b> have at least one row <span style="font-size:0.8em">(for <span class="st">Submitted</span>)</span>.<br><span style="font-size:0.75em;color:#8FB4D9">Error: <bdi class="ar">Project Tender غير مكتمل</bdi> — naming the empty tables.</span></span>
+  </p>
+  <p style="font-size:1em;color:#8FB4D9">The fix is always the same: open each Tender it names, press <b>Mark Complete</b> — or fill the table it names — then set the status again. Rows whose win has already been processed are left alone, so re-saving a Won tender never re-opens settled work.</p>
+</section>
+
+<!-- ============================== 16 · SUBMITTED ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">Step 7 of 9 · you set the status, the system closes the Activity</p>
+    <h2>Submitted sends the price out</h2>
+  </div>
+  <div class="body">
+    <div class="row wide">
+      <div class="card">
+        <span class="n">YOU</span>
+        <h3>Project Tender <span class="f">Status</span> &rarr; <span class="st">Submitted</span></h3>
+        <p>Set it and save. If the gate stops you, read the message: it names exactly which Tender or which table is holding you up.</p>
+      </div>
+      <div class="card auto">
+        <span class="n">THE SYSTEM</span>
+        <h3>The Tendering Activity is marked <span class="st ok">Done</span></h3>
+        <p>The Activity that created this tender closes itself, so the Opportunity's Activities table shows the tendering step as finished.</p>
+      </div>
+      <div class="card">
+        <span class="n">DELIBERATELY NOT TOUCHED</span>
+        <h3>The Opportunity's <span class="f">Status</span></h3>
+        <p>It stays <span class="st go">Tendering</span>. Which tender was actually approved is decided the other way round — from the Opportunity, in step 8.</p>
+      </div>
+    </div>
+    <div class="note">
+      <p><span class="h">From here the tendering stage runs.</span> The price is with the client, and the Project Tender waits in <span class="st">Submitted</span> until there is an answer.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 17 · PROJECT TENDER STATES ============================== -->
+<section class="slide alt">
+  <div class="head">
+    <p class="eyebrow">State diagram · Project Tender</p>
+    <h2>Seven statuses, and one gate in the middle</h2>
+  </div>
+  <div class="body">
+    <div class="chain">
+      <div class="box"><span class="s">Draft</span><span class="w">being put together; Tenders naming it join Direct Cost Details by themselves</span></div>
+      <div class="arr"></div>
+      <div class="box"><span class="s">Under Review</span><span class="w">checked internally, still editable</span></div>
+      <div class="arr"></div>
+      <div class="box gate"><span class="s" style="color:var(--amber-ink)">THE GATE</span><span class="w" style="color:var(--amber-ink)">all linked Tenders Complete, all three cost tables filled</span></div>
+      <div class="arr"></div>
+      <div class="box"><span class="s">Submitted</span><span class="w">price is with the client; closes the Tendering Activity</span></div>
+      <div class="arr"></div>
+      <div class="box auto"><span class="s" style="color:var(--blue-ink)">Won</span><span class="w">set for you from the Opportunity; raises the Project and Sales Order</span></div>
+    </div>
+    <div>
+      <h3 style="margin-bottom:0.5em">The other three — set by hand, at any stage, with no automation behind them</h3>
+      <div class="row">
+        <div class="card"><h3><span class="st">Lost</span></h3><p>The client awarded the work elsewhere.</p></div>
+        <div class="card"><h3><span class="st">Cancelled</span></h3><p>Dropped before the price went out. A cancelled Tender is also taken out of Direct Cost Details.</p></div>
+        <div class="card"><h3><span class="st">Superseded</span></h3><p>Replaced by a newer Project Tender for the same Opportunity.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 18 · WON ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">Steps 8 and 9 of 9 · the pop-up</p>
+    <h2>Won asks which Project Tender you relied on</h2>
+  </div>
+  <div class="body top">
+    <div class="row wide">
+      <div class="card">
+        <span class="n">1 · YOU</span>
+        <h3>Opportunity <span class="f">Status</span> &rarr; <span class="st go">Won</span></h3>
+        <p>A pop-up opens, asking which Project Tender was approved:</p>
+        <p style="font-size:1em"><bdi class="ar">أي Project Tender تم اعتماده؟</bdi></p>
+      </div>
+      <div class="card">
+        <span class="n">2 · YOU</span>
+        <h3>Pick it, then press <bdi class="ar">اعتماد</bdi> <span style="font-weight:400">(Approve)</span></h3>
+        <p>The list shows this Opportunity's tenders that are <span class="st">Submitted</span> &mdash; and only those &mdash; each as name &middot; project &middot; status &middot; value. Your choice lands in the read-only <span class="f">Approved Project Tender</span> field.</p>
+      </div>
+      <div class="card gate">
+        <span class="n">3 · YOU — THE STEP PEOPLE FORGET</span>
+        <h3><b>Save</b> the Opportunity</h3>
+        <p>Approving in the pop-up only fills the field. Nothing reaches the Project Tender until the Opportunity is saved.</p>
+      </div>
+      <div class="card auto">
+        <span class="n">4 · THE SYSTEM</span>
+        <h3>That one tender &rarr; <span class="st go">Won</span></h3>
+        <p>Its own Won automation then raises the <b>Project</b> and the <b>Sales Order</b>. The other tenders on the Opportunity are left exactly as they are.</p>
+      </div>
+    </div>
+    <div class="row wide">
+      <div class="note warn" style="flex:1">
+        <p><span class="h">Close the pop-up without choosing</span> — Esc or the ✕ — and the <span class="f">Status</span> goes back to what it was. An Opportunity is never left <span class="st go">Won</span> with no approved tender behind it.</p>
+      </div>
+      <div class="note" style="flex:1">
+        <p><span class="h">Nothing in the list?</span> The message says which case it is: no tenders at all — the direct-award case — or tenders that are none of them <span class="st">Submitted</span> yet. A price the client never saw cannot be the one they approved. Either way the status stands.</p>
+      </div>
+      <div class="note warn" style="flex:1">
+        <p><span class="h">If the win is refused</span> — a Tender not <span class="st">Complete</span>, a Tender with no <span class="f">Client</span> — the whole save rolls back, Opportunity included. Fix what the message names and save again.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 19 · OPPORTUNITY STATES ============================== -->
+<section class="slide alt">
+  <div class="head">
+    <p class="eyebrow">State diagram · Opportunity</p>
+    <h2>The two statuses that matter to this workflow</h2>
+  </div>
+  <div class="body">
+    <div class="chain">
+      <div class="box"><span class="s">Open</span><span class="w">you have just created it</span></div>
+      <div class="arr"></div>
+      <div class="box auto"><span class="s" style="color:var(--blue-ink)">Tendering</span><span class="w">set for you the moment a Tendering Activity creates a Project Tender</span></div>
+      <div class="arr"></div>
+      <div class="box gate"><span class="s" style="color:var(--amber-ink)">Won</span><span class="w">you set it; the pop-up asks which Project Tender was approved, and your save makes that tender Won</span></div>
+    </div>
+    <div class="row wide">
+      <div class="card">
+        <span class="n">ALSO AVAILABLE</span>
+        <h3>ERPNext's own statuses</h3>
+        <p><span class="st">Quotation</span> <span class="st">Replied</span> <span class="st">Converted</span> <span class="st">Lost</span> <span class="st">Closed</span> — use them as you always have. <b>Tendering</b> and <b>Won</b> are the two added for this workflow.</p>
+      </div>
+      <div class="card">
+        <span class="n">WATCH FOR</span>
+        <h3>An Opportunity already <span class="st go">Won</span></h3>
+        <p>Creating a Tendering Activity on it does <b>not</b> push it back to <span class="st go">Tendering</span>. Re-saving a Won Opportunity with the same approved tender does nothing either — the win is processed once.</p>
+      </div>
+      <div class="card">
+        <span class="n">AUDIT TRAIL</span>
+        <h3>Every automatic step leaves a comment</h3>
+        <p>On the Lead, the Opportunity and the Project Tender you will find who triggered what, and a link back to the Activity that did it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 20 · MISTAKES ============================== -->
+<section class="slide">
+  <div class="head">
+    <p class="eyebrow">Troubleshooting</p>
+    <h2>Five things that stop people, and what to do</h2>
+  </div>
+  <div class="body">
+    <table>
+      <tr>
+        <th style="width:30%">What you see</th>
+        <th style="width:34%">What it really means</th>
+        <th style="width:36%">What to do</th>
+      </tr>
+      <tr>
+        <td><bdi class="ar">مرفق مطلوب</bdi> on an Activity or an Opportunity</td>
+        <td>No file in <span class="f">Attachments</span> — an empty row does not count</td>
+        <td>Attach the document in the row, then save</td>
+      </tr>
+      <tr>
+        <td>“Cannot convert Lead … no Customer Group and Territory”</td>
+        <td>The Lead is missing the two fields the Customer is built from</td>
+        <td>Set them on the <b>Lead</b>, save it, set the Registration Activity to <span class="st ok">Done</span> again</td>
+      </tr>
+      <tr>
+        <td>“Linked Tender not Complete”</td>
+        <td>A Tender in <span class="f">Direct Cost Details</span> is still <span class="st">Draft</span> or <span class="st">In Progress</span></td>
+        <td>Open each Tender the message names, press <b>Mark Complete</b>, then set the status again</td>
+      </tr>
+      <tr>
+        <td><bdi class="ar">Project Tender غير مكتمل</bdi></td>
+        <td>One of the three cost tables is empty</td>
+        <td>Fill the table the message names before going to <span class="st">Submitted</span></td>
+      </tr>
+      <tr>
+        <td>The Opportunity says <span class="st go">Won</span> but the Project Tender does not</td>
+        <td>You approved in the pop-up but never saved the Opportunity</td>
+        <td>Save it. If the save was refused, fix what the error named and save again</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============================== 21 · QUICK REFERENCE ============================== -->
+<section class="slide alt">
+  <div class="head">
+    <p class="eyebrow">Quick reference · keep this slide</p>
+    <h2>Nine things you do. Everything else is done for you.</h2>
+  </div>
+  <div class="body top" style="gap:1em">
+    <ol class="steps">
+      <li><span class="k">1</span><span>Create the <b>Lead</b> — with <span class="f">Customer Group</span> and <span class="f">Territory</span> filled in.</span></li>
+      <li><span class="k">2</span><span>Log Activities on it. Always attach a file.</span></li>
+      <li><span class="k">3</span><span>Set the <span class="st go">Registration</span> Activity to <span class="st ok">Done</span> &rarr; <span class="k auto" style="min-width:auto;height:auto;border-radius:0.3em;padding:0.05em 0.4em">auto</span> the <b>Customer</b> appears.</span></li>
+      <li><span class="k">4</span><span>Create the <b>Opportunity</b> on that Customer, with an attachment.</span></li>
+      <li><span class="k">5</span><span>Save an Activity with <span class="f">Type</span> = <span class="st go">Tendering</span> &rarr; <span class="k auto" style="min-width:auto;height:auto;border-radius:0.3em;padding:0.05em 0.4em">auto</span> the <b>Project Tender</b> appears and the Opportunity goes <span class="st go">Tendering</span>.</span></li>
+      <li><span class="k">6</span><span>Fill all three cost tables, and <b>Mark Complete</b> every linked <b>Tender</b>.</span></li>
+      <li><span class="k gate">7</span><span>Project Tender &rarr; <span class="st">Submitted</span> &rarr; <span class="k auto" style="min-width:auto;height:auto;border-radius:0.3em;padding:0.05em 0.4em">auto</span> the Tendering Activity closes.</span></li>
+      <li><span class="k gate">8</span><span>Opportunity &rarr; <span class="st go">Won</span>, pick the approved tender in the pop-up, press <bdi class="ar">اعتماد</bdi>.</span></li>
+      <li><span class="k">9</span><span><b>Save the Opportunity</b> &rarr; <span class="k auto" style="min-width:auto;height:auto;border-radius:0.3em;padding:0.05em 0.4em">auto</span> that tender goes <span class="st go">Won</span>, and its Project and Sales Order are raised.</span></li>
+      <li><span class="k gate">!</span><span>Blocked at step 7 or 8? A Tender is not <span class="st">Complete</span>, or a cost table is empty. The message names it.</span></li>
+    </ol>
+    <div class="note">
+      <p><span class="h">The one habit that prevents most problems:</span> fill the record in front of you, attach the paperwork, and save. Do not reach into the next record to set a status that the system is going to set for you.</p>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

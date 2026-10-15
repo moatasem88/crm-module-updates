@@ -148,10 +148,14 @@ ol.steps-list li{margin-bottom:7px}
   <a href="#p2"><span>04</span>Steps 18–24</a>
   <div class="rail-title">Phase 3 · follow-ups</div>
   <a href="#p3"><span>05</span>Steps 25–26</a>
+  <div class="rail-title">Phase 4 · the Opportunity grows up</div>
+  <a href="#p4"><span>06</span>Steps 27–37</a>
+  <div class="rail-title">Phase 5 · dates and gates</div>
+  <a href="#p5"><span>07</span>Steps 38–42</a>
   <div class="rail-title">Putting it together</div>
-  <a href="#journey"><span>06</span>The whole journey</a>
-  <a href="#deploy"><span>07</span>Deploy &amp; verify</a>
-  <a href="#yourself"><span>08</span>Do it yourself</a>
+  <a href="#journey"><span>08</span>The whole journey</a>
+  <a href="#deploy"><span>09</span>Deploy &amp; verify</a>
+  <a href="#yourself"><span>10</span>Do it yourself</a>
 </nav>
 <main>
 
@@ -250,7 +254,7 @@ ol.steps-list li{margin-bottom:7px}
   <div class="sheet-head">
     <div class="sheet-no">Part 02</div>
     <h2>A map of the work</h2>
-    <p>Before the steps themselves: how much of each tool the project used, and when the three sessions happened. Use this to know roughly where you are as you read.</p>
+    <p>Before the steps themselves: how much of each tool the project used, and when the five sessions happened. Use this to know roughly where you are as you read.</p>
   </div>
 
   <div class="panel">
@@ -263,12 +267,12 @@ ol.steps-list li{margin-bottom:7px}
         <table>
           <thead><tr><th>Mechanism</th><th style="text-align:right">Count</th><th>Where it lives</th></tr></thead>
           <tbody>
-            <tr><td>Custom Fields</td><td style="text-align:right">18</td><td>Lead 8 · Opportunity 8 · Project Tender 2</td></tr>
-            <tr><td>Property Setters</td><td style="text-align:right">16</td><td>Lead 14 · Opportunity 2</td></tr>
-            <tr><td><code>doc_events</code> handlers</td><td style="text-align:right">12</td><td>Across 4 DocTypes</td></tr>
-            <tr><td><code>after_migrate</code> steps</td><td style="text-align:right">6</td><td>3 setup + 3 backfill</td></tr>
-            <tr><td>New DocTypes</td><td style="text-align:right">5</td><td>1 normal + 4 child tables</td></tr>
-            <tr><td>Client script files</td><td style="text-align:right">6</td><td>4 shared + 2 on Leads Activity</td></tr>
+            <tr><td>Custom Fields</td><td style="text-align:right">36</td><td>Opportunity 19 · Lead 9 · Project Tender 4 · Customer 2 · Tender 1 · Project Tender Direct Cost Detail 1</td></tr>
+            <tr><td>Property Setters</td><td style="text-align:right">18</td><td>Lead 15 · Opportunity 2 · Customer 1</td></tr>
+            <tr><td><code>doc_events</code> handlers</td><td style="text-align:right">29</td><td>Across 7 DocTypes — Opportunity 10, Lead 5, Customer 4, Project Tender 4, Tender 3, Contact 2, Leads Activity 1</td></tr>
+            <tr><td><code>after_migrate</code> steps</td><td style="text-align:right">11</td><td>5 setup + 6 backfill</td></tr>
+            <tr><td>New DocTypes</td><td style="text-align:right">7</td><td>1 normal + 6 child tables</td></tr>
+            <tr><td>Client script files</td><td style="text-align:right">7</td><td>5 in <code>public/js</code> + 2 on Leads Activity</td></tr>
             <tr><td>Whitelisted methods</td><td style="text-align:right">1</td><td><code>get_opportunity_tenders</code></td></tr>
           </tbody>
         </table>
@@ -281,21 +285,27 @@ ol.steps-list li{margin-bottom:7px}
       <g class="sv-line"><line x1="40" y1="106" x2="940" y2="106"/></g>
       <g>
         <circle cx="150" cy="106" r="7" style="fill:var(--s1);stroke:var(--surface);stroke-width:3"/>
-        <circle cx="640" cy="106" r="7" style="fill:var(--s2);stroke:var(--surface);stroke-width:3"/>
         <rect x="40" y="26" width="420" height="62" rx="9" class="sv-box"/>
         <text x="56" y="47" class="sv-t">Phase 1 · 6–7 Oct 2026 · steps 1–17</text>
         <text x="56" y="65" class="sv-s">New Leads Activity DocType · Lead &amp; Opportunity layout ·</text>
         <text x="56" y="80" class="sv-s">qualification &amp; tendering automation · mirror tables</text>
-        <rect x="520" y="124" width="420" height="62" rx="9" class="sv-box"/>
-        <text x="536" y="145" class="sv-t">Phases 2–3 · 10–11 Oct 2026 · steps 18–26</text>
-        <text x="536" y="163" class="sv-s">Six requested modifications, table ordering and Arabic</text>
-        <text x="536" y="178" class="sv-s">messages, then two follow-ups once they were in use</text>
+        <rect x="500" y="124" width="440" height="62" rx="9" class="sv-box"/>
+        <text x="516" y="145" class="sv-t">Phases 2–3 · 10–11 Oct 2026 · steps 18–26</text>
+        <text x="516" y="163" class="sv-s">Six requested modifications, table ordering and Arabic</text>
+        <text x="516" y="178" class="sv-s">messages, then two follow-ups once they were in use</text>
+        <rect x="500" y="26" width="440" height="62" rx="9" class="sv-box"/>
+        <text x="516" y="47" class="sv-t">Phases 4–5 · 11–15 Oct 2026 · steps 27–42</text>
+        <text x="516" y="65" class="sv-s">The Opportunity becomes a document in its own right;</text>
+        <text x="516" y="80" class="sv-s">then the dates behind each status, and one tighter gate</text>
         <line x1="150" y1="88" x2="150" y2="100" class="sv-line"/>
-        <line x1="640" y1="112" x2="640" y2="124" class="sv-line"/>
+        <line x1="620" y1="112" x2="620" y2="124" class="sv-line"/>
+        <line x1="800" y1="88" x2="800" y2="100" class="sv-line"/>
+        <circle cx="620" cy="106" r="7" style="fill:var(--s2);stroke:var(--surface);stroke-width:3"/>
+        <circle cx="800" cy="106" r="7" style="fill:var(--s1);stroke:var(--surface);stroke-width:3"/>
       </g>
       <g class="sv-l"><text x="40" y="200">app created</text><text x="880" y="96">today</text></g>
     </svg>
-    <figcaption>Three working sessions. Phase 1 built the feature; Phase 2 changed the rules around it once the business reviewed how it behaved; Phase 3 adjusted two of those rules again after a day of real use. Everything after Phase 1 is the realistic part of customization work — expect it.</figcaption>
+    <figcaption>Five working sessions. Phase 1 built the feature; Phase 2 changed the rules around it once the business reviewed how it behaved; Phase 3 adjusted two of those rules again after a day of real use; Phase 4 grew the Opportunity into a document in its own right; Phase 5 added the dates that record <em>when</em> each status was reached. Everything after Phase 1 is the realistic part of customization work — expect it.</figcaption>
   </figure>
 </section>
 
@@ -692,11 +702,252 @@ ol.steps-list li{margin-bottom:7px}
   </article>
 </section>
 
+<section id="p4">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 06 · Phase 4</div>
+    <h2>The Opportunity grows up — steps 27 to 37</h2>
+    <p>Eleven changes over four days: the Opportunity becomes a document in its own right, with a name, paperwork, a value breakdown and a client you can click through to — and the tendering side gains the rules that stop an unfinished price going out. <span class="phase">11–14 Oct 2026</span></p>
+  </div>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">27</div><div>
+      <h3>The Opportunity gets a name of its own</h3>
+      <p>An Opportunity Name and a Description at the top of the form — and the name becomes the Opportunity's title.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Two fields, <strong>Opportunity Name</strong> and <strong>Opportunity Description</strong>, sit directly under the naming series. On save, whatever is in the name is copied into ERPNext's own <code>title</code> field, so it is what the list view, links, breadcrumbs and reports show.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocType <strong>Opportunity</strong>. Two Custom Fields and <code>set_title</code> on <code>validate</code>, in <code>overrides/opportunity.py</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Every Opportunity for the same client read identically — ERPNext names them <code>CRM-OPP-…</code> and falls back to the party's name for the title. Rather than add a second name the user has to keep in step with the title, the save copies one into the other: one field to fill, and ERPNext's own title stays the thing on screen.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Custom Field</span><span class="chip">Hook: validate</span></div>
+    <div class="lesson"><b>Lesson.</b> Our <code>validate</code> hook runs <em>after</em> the controller's own, so it has the last word. ERPNext only sets <code>title</code> when it is empty; copying into it afterwards is enough, and nothing in core has to be touched. A side effect worth knowing: Project Tenders raised from a Tendering activity take their project name from <code>opportunity.title</code>, so they are now named after the Opportunity Name too.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">28</div><div>
+      <h3>An Opportunity cannot be saved without paperwork</h3>
+      <p>A new Attachments table, and the save is refused while it is empty.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">An <strong>Attachments</strong> section on the Opportunity holding Attach + Description rows — the same pair the activity has used since step 19. Saving with no file attached is refused in Arabic, naming the table. The same paperwork gates activities: pressing <strong>Create ▸ Activity</strong> on an Opportunity with an empty table is refused with an alert, and nothing is opened.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocType <strong>Opportunity</strong>, new child DocType <strong>Opportunity Attachment</strong>, <code>validate_attachments</code> on <code>validate</code>, and a matching check in <code>opportunity.js</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">An enquiry with nothing on file is not a record of anything. The rule is a <code>validate</code> hook rather than <code>reqd</code> on the table because ERPNext raises Opportunities <em>itself</em> — from an incoming email, for instance — and those have nothing to attach; such saves pass <code>ignore_permissions</code> or <code>ignore_mandatory</code> and are skipped.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Child DocType</span><span class="chip">Hook: validate</span><span class="chip">Client Script</span></div>
+    <div class="lesson"><b>Lesson.</b> The activity half of this rule reads the <em>database</em>, not the form: an activity is a separate document, so the file has to be <em>saved</em> on the Opportunity, not merely typed into it. Checking it in <code>make_activity</code> means all three ways in — the Create menu, the grid's New Activity button and the Connections tab's "+" — are refused the same way, before a form the user cannot save is ever opened. A rule the framework also applies to its own writes belongs in <code>validate</code>, where you can honour <code>ignore_mandatory</code>, not in a field property, which applies to everyone. The same reasoning appears in step 16 for the Lead's mandatory fields.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">29</div><div>
+      <h3>The money section moved above the client's details</h3>
+      <p>Opportunity Value now sits directly above Organization, and carries a Targeted Amount.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">The <strong>Opportunity Value</strong> section (currency, exchange rate, opportunity amount) was below Organization; it is now directly above it, with a new <strong>Targeted Amount</strong> field inside it.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocType <strong>Opportunity</strong>. One Custom Field plus <code>apply_field_order</code>, which writes a <code>field_order</code> Property Setter — the same helper the Lead's layout uses (step 2).</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">The value of the deal is what people look at first; the client's details are reference. A standard field cannot be moved with a custom field's <code>insert_after</code> — only a <code>field_order</code> Property Setter can reorder ERPNext's own fields, which is what Customize Form writes when you drag a field.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Property Setter</span><span class="chip">Custom Field</span><span class="chip">after_migrate</span></div>
+    <div class="lesson"><b>Lesson.</b> Moving a section means moving every field up to the next section break, not just its heading — <code>move_section</code> does that. Build the new order from the <em>current</em> one so that anything Customize Form or a later ERPNext upgrade did is kept, and return early when nothing changed, which is what makes it safe to run on every migrate.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">30</div><div>
+      <h3>Opportunity Breakdown: splitting the targeted amount between trades</h3>
+      <p>A table under Organization splits the Targeted Amount between civil, mec, elec and elev.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Each row names a <strong>type</strong> (civil, mec, elec, elev), a <strong>contribution type</strong> (Percentage or Fixed Amount) and a value. <strong>Final Value</strong> is worked out for the user: 20% of a 20,000 Targeted Amount is 4,000; a Fixed Amount row is simply its own value.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">New child DocType <strong>Opportunity Contribution</strong>, a section and table on the Opportunity, <code>calculate_contributions</code> on <code>validate</code>, and row handlers in <code>opportunity.js</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">The breakdown is how the office decides what each trade is worth before any tender exists. Final Value is stored rather than computed on the fly so it can be totalled and filtered in reports — a Currency field can, a formula cannot.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Child DocType</span><span class="chip">Hook: validate</span><span class="chip">Client Script</span></div>
+    <div class="lesson"><b>Lesson.</b> Compute in both places, and let the server win. The client script fills the figure as the user types, so the numbers on screen are the ones being decided on; the server works every row out again on save, which is what makes it right for the REST API, a Data Import, and a Targeted Amount changed without touching the rows. The field itself is read-only, so no one can disagree with the arithmetic.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">31</div><div>
+      <h3>Every activity on a Lead or an Opportunity now needs an attachment</h3>
+      <p>The rule from step 19 widened: not just Registration any more.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Since step 19 only a <strong>Registration</strong> activity required a file. Now <em>any</em> activity logged against a Lead or an Opportunity does, whatever its type; a Registration still requires one whatever it is linked to. A Prospect's other activities are the only ones that need none.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocType <strong>Leads Activity</strong>: <code>validate_attachment</code> (renamed from <code>validate_registration_attachment</code>), a widened <code>mandatory_depends_on</code>, and the matching check in <code>leads_activity.js</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">What the CRM follows a client up with is paperwork: a call with nothing on file leaves no evidence of what was agreed. Two messages are kept rather than one, so each says what is actually wrong — the Registration message names the type, the other names what the activity is linked to.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Hook: validate</span><span class="chip">Property Setter</span><span class="chip">Client Script</span></div>
+    <div class="lesson"><b>Lesson.</b> Widening a rule is not just an <code>if</code>: it invalidates the tests and the fixtures that encoded the old one. The activity fixture now attaches a file for every type, and the test that said "other types need none" was inverted rather than deleted — a rule change should leave the suite asserting the <em>new</em> rule, not simply pass.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">32</div><div>
+      <h3>The Customer gets the Contacts table too</h3>
+      <p>And the Lead now rolls up its Customer's contacts as well as its Opportunities'.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">The <strong>Customer</strong> form shows the same read-only Contacts table as the Lead and the Opportunity, listing only the contacts linked to the Customer itself. The Lead it came from lists its own contacts, then each Opportunity's, then the Customer's — each row saying where it came from.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">New <code>overrides/customer.py</code> (two Custom Fields, core's contact list hidden), extended <code>contact_sources</code>, <code>lead_in</code> and <code>refresh_party_lead</code> in <code>overrides/contact.py</code>, and the buttons in <code>customer.js</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">A contact added after the sale belongs to the client, not to the deal it came from, so the Customer lists only its own. The Lead stays the one place where the whole relationship is visible. A Customer counts as the Lead's whether it carries <strong>From Lead</strong> or <strong>From Opportunity</strong> — the two ways ERPNext records the same conversion.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Custom Field</span><span class="chip">Hook: validate</span><span class="chip">Hook: on_update</span><span class="chip">Client Script</span></div>
+    <div class="lesson"><b>Lesson.</b> When a roll-up grows a new source, the delete and re-point paths grow with it: <code>lead_in</code> reads the Lead from a document in hand so a Customer being deleted or moved to another Lead still refreshes both Leads. Testing also turned up an ERPNext behaviour worth knowing — converting a Lead links its contacts to the new Customer, so they legitimately appear on both, and the Lead lists each one once.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">33</div><div>
+      <h3>The Opportunity's Connections tab shows its client</h3>
+      <p>Open an Opportunity and the Lead, Customer or Prospect it belongs to is right there.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">The <strong>Connections</strong> tab gains a <strong>Client</strong> group: the Lead, Customer or Prospect the Opportunity belongs to, the Customers converted from it, and its Project Tenders — alongside the Activities and Quotations already there.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocType <strong>Opportunity</strong>: three hidden mirror Custom Fields, <code>set_party_links</code> on <code>validate</code>, <code>backfill_party_links</code> on migrate, and an extended <code>get_dashboard_data</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">People open an Opportunity and want one click back to the client. Connections could not do it on its own: the party is a <em>Dynamic Link</em> (Opportunity From + Party), and a Connections card reads one plain field — so one card would have had to serve three DocTypes and would have sent Lead-sourced Opportunities to a Customer that does not exist.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Custom Field</span><span class="chip">Hook: validate</span><span class="chip">Dashboard override</span><span class="chip">after_migrate</span></div>
+    <div class="lesson"><b>Lesson.</b> When the framework cannot follow your relationship, give it one it can follow, and keep it derived. The mirrors are hidden, read-only and filled from <code>party_name</code> on every save, so there is still exactly one field anyone edits. Clearing the other two matters as much as setting the right one — otherwise a re-pointed Opportunity shows two clients for ever.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">34</div><div>
+      <h3>Create ▸ Tender on the Project Tender</h3>
+      <p>The same Create-menu convenience the Customer got in step 26, for tenders.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A <strong>Create ▸ Tender</strong> entry on the Project Tender form opens a new Tender already belonging to it, with project name, client and site location carried over.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">Contracting app: <code>make_tender</code> in <code>project_tender.py</code> and a button in <code>project_tender.js</code>, using <code>frappe.model.open_mapped_doc</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Tenders were created from scratch and then linked by hand, which meant remembering which Project Tender a package belonged to. The mapper is the same mechanism ERPNext uses for every Create menu in the system.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Server mapper</span><span class="chip">Client Script</span><span class="chip">open_mapped_doc</span></div>
+    <div class="lesson"><b>Lesson.</b> A mapper copies same-named fields by default, which is rarely all you want: <code>naming_series</code> would have carried <code>PT-</code> into a <code>TND-</code> document, and the two cost totals would have arrived pre-filled from a different document. <code>field_no_map</code> is the guard; <code>no_copy</code> on both sides already handled status.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">35</div><div>
+      <h3>A Tender joins its Project Tender's cost table by itself</h3>
+      <p>However it was raised — from the button, or on the Tender form with the Project Tender picked by hand.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Saving a new Tender that names a Project Tender adds its row to that Project Tender's <strong>Direct Cost Details</strong>. It is skipped for a revised version, for a Tender already in the table, and when the Project Tender has moved past Draft or Under Review — there the user is told rather than silently ignored.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">Contracting app: <code>add_tender_to_direct_cost</code> in <code>project_tender.py</code>, called from <code>Tender.after_insert</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">Naming the Project Tender is what costs the Tender into it; keeping the row a separate manual step only created the chance to forget it. It was deliberately button-only for a day, then widened once it was clear that hand-raised Tenders should behave the same way.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Hook: after_insert</span><span class="chip">Automation</span></div>
+    <div class="lesson"><b>Lesson.</b> Automating a manual step breaks everyone still doing it by hand — ten existing tests added that row themselves and would have hit the parent's duplicate guard. Find every caller before you automate, and decide each one: nine were redundant afterwards, one was kept, because by then its Project Tender is Won and the automation deliberately skips those.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">36</div><div>
+      <h3>Cancelled tenders drop out of the price</h3>
+      <p>A new Tender status, and a cost table that never counts one.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v"><strong>Cancelled</strong> joins Draft, In Progress and Complete on the Tender. A cancelled Tender never joins a Direct Cost table, is removed from any it is already in — with a note on the Project Tender's timeline — and is hidden from the row picker.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">Contracting app: the <code>status</code> options in <code>tender.json</code>, <code>remove_cancelled_tender_rows</code>, a backstop in <code>validate_direct_cost_details</code>, and a filter in <code>set_tender_query</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">A dropped package was still being carried in the total, and — after step 37 — would have blocked the Project Tender from ever being Submitted, because a cancelled Tender never becomes Complete.</p></div>
+    </div>
+    <div class="chips"><span class="chip">DocType JSON</span><span class="chip">Hook: on_update</span><span class="chip">Client Script</span></div>
+    <div class="lesson"><b>Lesson.</b> A new status is never just an option in a list: ask what each rule that reads the old statuses should now do. Here the removal runs before the cross-sync so no stale cost is pushed, and rows whose Won automation already ran are left alone — a Project and a Sales Order exist against those, and that history is not ours to rewrite.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">37</div><div>
+      <h3>A price only goes out once every tender behind it is final</h3>
+      <p>Submitted and Won both now require each costed Tender to be Complete.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Setting a Project Tender to <strong>Submitted</strong> or <strong>Won</strong> is refused while any Tender in its Direct Cost Details is still being worked on. The message names the row, the Tender and its current status, and says to use Mark Complete.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">Contracting app: <code>validate_linked_tenders_complete</code> in <code>project_tender.py</code>, running on <code>validate</code> before the existing Won preconditions.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">An In Progress Tender's BOQ can still change, which would move the Project Tender's total after the number had already gone to the client. Won already enforced this; Submitted — which is the moment the price actually leaves — did not.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Hook: validate</span><span class="chip">Status gate</span></div>
+    <div class="lesson"><b>Lesson.</b> The rule already existed for one status inside a larger check. Lifting it into its own method and widening it there left one implementation, not two copies drifting apart — and the Won-only preconditions (client, BOQ items, UOM) stayed exactly where they were.</div>
+  </article>
+</section>
+
+
+<section id="p5">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 07 · Phase 5</div>
+    <h2>Dates behind the statuses — steps 38 to 42</h2>
+    <p>Five changes in one session. Four of them answer a question the system could not answer before — <em>when</em> did this happen? — and the fifth tightens the pop-up that closes a deal. <span class="phase">15 Oct 2026</span></p>
+  </div>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">38</div><div>
+      <h3>The Lead records the day it was converted</h3>
+      <p>A read-only Date of Convert beside Status, filled by whichever route converts the Lead.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">A <strong>Date of Convert</strong> field on the Lead, stamped with today's date the first time the status becomes <strong>Converted</strong> — whether someone sets the status on the form or a Registration activity converts the Lead into a Customer. Once set it never moves, even if the Lead goes back to Open and is converted again.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocType <strong>Lead</strong>. One Custom Field, plus two handlers in <code>overrides/lead.py</code>: <code>set_date_of_convert</code> on Lead <code>validate</code>, and <code>set_date_of_convert_from_customer</code> on <strong>Customer</strong> <code>on_update</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">"How long does a Lead take to convert?" had no answer in the data. The creation date was there, the conversion date was not — it only existed as a line in the timeline, which cannot be reported on.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Custom Field</span><span class="chip">Hook: validate</span><span class="chip">Hook: on_update</span><span class="chip">Backfill</span></div>
+    <div class="lesson"><b>Lesson.</b> The second handler is the whole lesson. ERPNext marks the Lead Converted with <code>frappe.db.set_value</code> from inside the <em>Customer</em>'s save — a direct write to the database that loads no Lead at all, so no Lead hook of any kind runs. A handler on the Lead alone would have been correct, tested, and silently blind to the most common route into that status. <strong>Before hooking a status, search the installed apps for <code>db.set_value</code> on that field.</strong> The backfill shows the same care: Leads converted before the field existed take the date from <em>their Customer's</em> creation date, and a Lead marked Converted by hand with no Customer is left blank rather than given today's date — a wrong date is worse than an empty field.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">39</div><div>
+      <h3>A Tender records the day it was completed</h3>
+      <p>Completion Date on the Tender, and the same date as a column in the Project Tender that lists it.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Marking a <strong>Tender</strong> Complete stamps a <strong>Completion Date</strong> on it. That date also appears as a column in the Project Tender's <strong>Direct Cost Details</strong> — the table its Tenders are added to — beside the Tender Status column that was already there.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocTypes <strong>Tender</strong> and <strong>Project Tender Direct Cost Detail</strong>, both in the contracting app. A new file, <code>overrides/tender.py</code>, holds the fields and the hooks; nothing in contracting was edited.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">A Project Tender bundles several Tenders, and the question on review is which trade finished when. The status column said <em>Complete</em> but not <em>when</em>, so the answer meant opening each Tender's timeline in turn.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Custom Field</span><span class="chip">fetch_from</span><span class="chip">Hook: validate</span><span class="chip">Backfill</span></div>
+    <div class="lesson"><b>Lesson.</b> Two things make this work. First, the timing: contracting <strong>locks</strong> a Tender the moment it is Complete and refuses any later edit, so the date has to be written on the very save that sets the status — which is why the hook is on <code>validate</code> and not <code>on_update</code>. Frappe runs a DocType's own controller first and the hooks after it, so by then the lock check has already passed on the old status. Second, the column: it is not a mirror table but a Custom Field with <code>fetch_from: "tender.completion_date"</code>, which Frappe re-resolves every time the Project Tender is saved — and contracting already saves it whenever a Tender changes. Sometimes the cheapest sync is the one you do not write.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">40</div><div>
+      <h3>Submitted and Won dates, on the tender and the Opportunity</h3>
+      <p>Three more dates: when the tender went out, when it was won, and when the Opportunity closed.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v"><strong>Submitted Date</strong> and <strong>Won Date</strong> on the Project Tender, and a <strong>Won Date</strong> on the Opportunity, each stamped the first time its status is reached. The two tender dates also show as columns in the Opportunity's own <strong>Project Tenders</strong> table, so the whole tendering history reads from one screen.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocTypes <strong>Project Tender</strong> and <strong>Opportunity</strong>, plus two new columns on the <strong>Opportunity Project Tender</strong> child DocType. <code>set_status_dates</code> and <code>set_won_date</code>, both on <code>validate</code>.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">The pipeline could say what state everything was in, but not how long anything took: submitted-to-won, or opportunity-to-close. Those two intervals are the ones the business actually reviews.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Custom Field</span><span class="chip">Child DocType</span><span class="chip">Hook: validate</span></div>
+    <div class="lesson"><b>Lesson.</b> Three dates, one rule, written once: a dictionary maps each status to the field that records it, and the hook looks the current status up in it. Adding a date for <em>Lost</em> later is one line plus a field, not a fourth copy of the same if-statement. Showing them on the Opportunity needed three matching edits — the child DocType, the sync query, and the tuple the sync compares rows with. Miss the last and the table never notices a date changed; that trio is the recurring tax of a mirror table, and it is the third time this document has mentioned it.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">41</div><div>
+      <h3>A new Tender knows its own deadline</h3>
+      <p>Submission Deadline is filled from the Opportunity's Expected Closing Date — and stays editable.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">Raise a Tender under a Project Tender that came from an Opportunity, and its <strong>Submission Deadline</strong> is already set to that Opportunity's <strong>Expected Closing Date</strong>. It is an ordinary editable field afterwards: change it and it stays changed.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v">DocType <strong>Tender</strong>. <code>set_submission_deadline</code> on <code>before_insert</code> in <code>overrides/tender.py</code>, and a matching lookup in the new <code>public/js/tender.js</code> so the date appears in the form before saving.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">The deadline was being copied by hand from a record two links away — the Tender's Project Tender, and that Project Tender's Opportunity — and a typo there is a missed bid.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Hook: before_insert</span><span class="chip">Client Script</span></div>
+    <div class="lesson"><b>Lesson.</b> The obvious tool is the wrong one. <code>fetch_from</code> looks like "copy this from the related record", but Frappe re-resolves it on <em>every</em> save, so it would overwrite the user's own date every time they pressed Save — a bug that looks like the form randomly losing input. <code>fetch_from</code> is a continuous relationship; a default is a one-time event. Anything the user may change afterwards is filled imperatively in <code>before_insert</code>, into an empty field only. The client script is a convenience on top: the server hook is what holds for the API, a Data Import and the bench console.</div>
+  </article>
+
+  <article class="step">
+    <div class="step-head"><div class="step-no">42</div><div>
+      <h3>The approved-tender pop-up only offers Submitted tenders</h3>
+      <p>Closing an Opportunity as Won now lists the prices that actually reached the client.</p>
+    </div></div>
+    <div class="qa">
+      <div class="qa-row"><div class="qa-k">What</div><p class="qa-v">The pop-up from step 19 — the one that asks which Project Tender was approved — now lists only tenders whose status is <strong>Submitted</strong>. If the Opportunity has tenders but none of them is Submitted, the message says exactly that and what to do about it, which is different from the message for an Opportunity with no tenders at all.</p></div>
+      <div class="qa-row"><div class="qa-k">Where</div><p class="qa-v"><code>get_opportunity_tenders</code> in <code>overrides/project_tender.py</code> gains one filter; <code>public/js/opportunity.js</code> gains the second message.</p></div>
+      <div class="qa-row"><div class="qa-k">Why</div><p class="qa-v">A Draft tender is a price that never left the office, and a Lost or Cancelled one was not approved. Offering them invited the wrong answer at the exact moment the deal is being booked.</p></div>
+    </div>
+    <div class="chips"><span class="chip">Hook: whitelisted method</span><span class="chip">Client Script</span></div>
+    <div class="lesson"><b>Lesson.</b> The filter went on the <em>server</em> method that feeds the pop-up, not on the array the browser receives. Same visible result, but the rule now lives next to the status it is about, in one place, where the next person looking for it will find it. The second half is worth as much as the filter: when a list becomes empty for a new reason, say which reason. The page already knew — the Opportunity's own tenders table is on the same tab — so telling the two apart cost nothing and turns a dead end into an instruction.</div>
+  </article>
+</section>
+
 <section id="journey">
   <div class="sheet-head">
-    <div class="sheet-no">Part 06</div>
+    <div class="sheet-no">Part 08</div>
     <h2>How it all fits: two flowcharts</h2>
-    <p>The first shows the business journey the 24 steps produce. The second shows the mechanism that appears in four of them.</p>
+    <p>The first shows the business journey the 42 steps produce. The second shows the mechanism that appears in four of them.</p>
   </div>
 
   <figure>
@@ -774,7 +1025,7 @@ ol.steps-list li{margin-bottom:7px}
 
 <section id="deploy">
   <div class="sheet-head">
-    <div class="sheet-no">Part 07</div>
+    <div class="sheet-no">Part 09</div>
     <h2>Deploying and verifying</h2>
     <p>What to run, in what order, and how to prove the result.</p>
   </div>
@@ -794,18 +1045,18 @@ bench restart                          # Python changes need the workers restart
 
   <div class="panel">
     <h3 style="font-size:16px">Proving it works</h3>
-    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">The app ships <strong>90 automated tests</strong> across two files. They create their own Leads, Opportunities, activities and tenders and roll everything back afterwards.</p>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 0">The app ships <strong>154 automated tests</strong> across three files. They create their own Leads, Opportunities, activities and tenders and roll everything back afterwards.</p>
 <pre><code>bench --site &lt;test-site&gt; run-tests --app custom_crm_updates</code></pre>
     <div class="callout" style="margin-top:14px">
       <div class="ic">Honest note</div>
-      <p>89 of the 90 pass. One test, <code>test_mandatory_when_saved_by_a_user</code>, fails on this bench and <strong>failed before any of this phase's work</strong> — ERPNext's test setup writes user defaults for Customer Group and Territory, and Frappe fills empty fields from them, so the mandatory error never fires inside the test runner. The rule itself works outside the runner. Run tests on a dedicated test site: on a live site, ERPNext's sample records are saved permanently.</p>
+      <p>151 of the 154 pass. The three failures were each checked by stashing the current work and re-running, and all three <strong>fail identically without it</strong>. The one worth knowing: <code>test_mandatory_when_saved_by_a_user</code> — ERPNext's test setup writes user defaults for Customer Group and Territory, and Frappe fills empty fields from them, so the mandatory error never fires inside the test runner. The rule itself works outside the runner. The other two are an Opportunity status that is not in the field's option list, and an assertion about a <code>mandatory_depends_on</code> that has since been narrowed. Run tests on a dedicated test site: on a live site, ERPNext's sample records are saved permanently.</p>
     </div>
   </div>
 </section>
 
 <section id="yourself">
   <div class="sheet-head">
-    <div class="sheet-no">Part 08</div>
+    <div class="sheet-no">Part 10</div>
     <h2>Doing this yourself</h2>
     <p>The seven habits this project would hand to someone starting their first ERPNext customization.</p>
   </div>
@@ -859,8 +1110,8 @@ bench restart                          # Python changes need the workers restart
 
   // ---- chart ----
   var DATA = [
-    ["Custom Fields", 18], ["Property Setters", 16], ["doc_events handlers", 12],
-    ["after_migrate steps", 6], ["Client script files", 6], ["New DocTypes", 5],
+    ["Custom Fields", 36], ["doc_events handlers", 29], ["Property Setters", 18],
+    ["after_migrate steps", 11], ["New DocTypes", 7], ["Client script files", 7],
     ["Whitelisted methods", 1]
   ];
   var chart = null;

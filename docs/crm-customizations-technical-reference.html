@@ -164,14 +164,15 @@ small.note{display:block;color:var(--muted);font-size:12.5px;margin-top:8px}
   <div class="rail-title">Mechanisms</div>
   <a href="#mirror"><span>03</span>Mirror tables</a>
   <a href="#midsave"><span>04</span>Writing mid-save</a>
-  <a href="#multisite"><span>05</span>Multi-site &amp; concurrency</a>
-  <a href="#security"><span>06</span>Permissions &amp; security</a>
+  <a href="#phase4"><span>05</span>Outward links, joins &amp; gates</a>
+  <a href="#multisite"><span>06</span>Multi-site &amp; concurrency</a>
+  <a href="#security"><span>07</span>Permissions &amp; security</a>
   <div class="rail-title">Per step</div>
-  <a href="#steps"><span>07</span>Step index &amp; code</a>
+  <a href="#steps"><span>08</span>Step index &amp; code</a>
   <div class="rail-title">Operations</div>
-  <a href="#risks"><span>08</span>Risks &amp; pitfalls</a>
-  <a href="#tests"><span>09</span>Tests</a>
-  <a href="#assumptions"><span>10</span>Assumptions</a>
+  <a href="#risks"><span>09</span>Risks &amp; pitfalls</a>
+  <a href="#tests"><span>10</span>Tests</a>
+  <a href="#assumptions"><span>11</span>Assumptions</a>
 </nav>
 <main>
 
@@ -182,7 +183,7 @@ small.note{display:block;color:var(--muted);font-size:12.5px;margin-top:8px}
   <div class="meta">
     <div>App</div><div><code>apps/custom_crm_updates</code> · module <code>Custom CRM Updates</code></div>
     <div>Platform</div><div>Frappe v14 · ERPNext v14 · MariaDB · Redis · RQ workers</div>
-    <div>Server code</div><div>1,466 lines across 7 Python files · 327 lines of JavaScript · 1,080 lines of tests</div>
+    <div>Server code</div><div>2,246 lines across 9 Python files · 518 lines of JavaScript · 1,862 lines of tests</div>
     <div>Sites</div><div><code>site1.local</code> (current) · <code>friendmix.local</code></div>
     <div>Companion</div><div><code>docs/crm-customizations-walkthrough.html</code> — the same work, taught step by step</div>
   </div>
@@ -198,31 +199,38 @@ small.note{display:block;color:var(--muted);font-size:12.5px;margin-top:8px}
   <div class="panel">
     <h3 class="block">File tree</h3>
 <pre class="sm"><code>apps/custom_crm_updates/custom_crm_updates/
-├── hooks.py                                    249  wiring: doc_events, after_migrate, doctype_js, dashboards
+├── hooks.py                                    289  wiring: doc_events, after_migrate, doctype_js, dashboards
 ├── mirror_table.py                              33  shared writer for every read-only table
 ├── overrides/
-│   ├── lead.py                                 268  Lead fields/layout, Is Company, mandatory, Lead → Customer
-│   ├── opportunity.py                           98  Opportunity fields, statuses, Project Tender tab
-│   ├── project_tender.py                       354  Tendering → tender, Submitted → activity Done, approved tender
-│   └── contact.py                              239  Contacts tables; the Lead rolls up its Opportunities'
+│   ├── lead.py                                 356  Lead fields/layout, Is Company, mandatory, Lead → Customer, Date of Convert
+│   ├── opportunity.py                          426  Opportunity fields, layout, title, attachments, breakdown, party links, Won Date
+│   ├── customer.py                              36  the Customer's Contacts table
+│   ├── project_tender.py                       416  Tendering → tender, Submitted → activity Done, approved tender, stage dates
+│   ├── tender.py                               162  Completion Date + its Direct Cost column, Submission Deadline from the Opportunity
+│   └── contact.py                              287  Contacts tables; the Lead rolls up its Opportunities' and its Customer's
 ├── custom_crm_updates/doctype/
 │   ├── leads_activity/                         220  the DocType: controller, JSON, form script, list script
 │   ├── leads_activity_attachment/                -  child: Attach + Description
 │   ├── leads_activity_detail/                    -  child: mirror row for the activities table
 │   ├── leads_contact_detail/                     -  child: mirror row for the contacts table
-│   └── opportunity_project_tender/               -  child: mirror row for the tenders table
+│   ├── opportunity_project_tender/               -  child: mirror row for the tenders table
+│   ├── opportunity_attachment/                   -  child: Attach + Description on the Opportunity
+│   └── opportunity_contribution/                 -  child: the Opportunity Breakdown row
 ├── public/js/
-│   ├── customer.js                              24  Create ▸ Opportunity, via ERPNext's own mapper
+│   ├── customer.js                              39  Create ▸ Opportunity, plus the Contacts table buttons
 │   ├── lead.js                                  27  Lead controller subclass
-│   ├── opportunity.js                          141  Opportunity controller, Won popup, contact_person query
-│   └── leads_activity_section.js                77  shared buttons, show_when_empty, New Contact linking
-└── tests/test_crm_automation.py                632  50 tests (tendering, approved tender, contacts, conversion)</code></pre>
+│   ├── opportunity.js                          230  Opportunity controller, Won popup, breakdown maths, attachments
+│   ├── tender.js                                49  Submission Deadline from the Opportunity, in the form
+│   └── leads_activity_section.js               106  shared buttons, show_when_empty, the attachment gate
+└── tests/
+    ├── test_crm_automation.py                 1008  82 tests (tendering, approved tender, contacts, conversion, stage dates)
+    └── test_opportunity.py                     347  29 tests (title, attachments, breakdown, layout, Connections)</code></pre>
     <small class="note">Line counts from <code>wc -l</code> on the current working tree. <code>leads_activity/</code> is the controller only; its JSON, form script (40) and list script (18) are counted separately in the JavaScript total.</small>
   </div>
 
   <div class="panel">
     <h3 class="block">Server code by file</h3>
-    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 10px"><code>project_tender.py</code> is the largest because it owns both directions of the Opportunity ↔ Project Tender relationship plus the mirror table for it. <code>mirror_table.py</code> is the smallest and the most reused — 33 lines behind four tables.</p>
+    <p style="color:var(--ink-2);font-size:14.5px;margin:8px 0 10px"><code>opportunity.py</code> is now the largest: it owns the Opportunity's own fields and layout as well as its rules (title, attachments, breakdown, party links). <code>project_tender.py</code> owns both directions of the Opportunity ↔ Project Tender relationship plus the mirror table for it. <code>mirror_table.py</code> is the smallest and the most reused — 33 lines behind four tables. <code>tender.py</code> is the newest and the narrowest: one date field, its mirrored column, and one value inherited at creation.</p>
     <div class="chart-wrap" style="height:280px"><canvas id="chartLoc" aria-label="Horizontal bar chart of lines of code per server file" role="img"></canvas></div>
     <details class="tableview">
       <summary>Show the numbers as a table</summary>
@@ -230,12 +238,14 @@ small.note{display:block;color:var(--muted);font-size:12.5px;margin-top:8px}
         <table>
           <thead><tr><th>File</th><th style="text-align:right">Lines</th><th>Responsibility</th></tr></thead>
           <tbody>
-            <tr><td><code>overrides/project_tender.py</code></td><td style="text-align:right">354</td><td>Tendering automation, Submitted rule, approved tender, tender mirror</td></tr>
-            <tr><td><code>overrides/lead.py</code></td><td style="text-align:right">268</td><td>Lead layout, Is Company, mandatory fields, Lead → Customer</td></tr>
-            <tr><td><code>hooks.py</code></td><td style="text-align:right">254</td><td>Wiring (mostly the generated comment template)</td></tr>
-            <tr><td><code>overrides/contact.py</code></td><td style="text-align:right">239</td><td>Contacts mirror; the Lead rolls up its Opportunities'</td></tr>
-            <tr><td><code>leads_activity/leads_activity.py</code></td><td style="text-align:right">220</td><td>DocType controller, qualification, activity mirror</td></tr>
-            <tr><td><code>overrides/opportunity.py</code></td><td style="text-align:right">98</td><td>Opportunity fields, status options, hidden fields</td></tr>
+            <tr><td><code>overrides/opportunity.py</code></td><td style="text-align:right">426</td><td>Opportunity fields, layout, title, attachments, breakdown, party links, Won Date</td></tr>
+            <tr><td><code>overrides/project_tender.py</code></td><td style="text-align:right">416</td><td>Tendering automation, Submitted rule, approved tender, tender mirror, stage dates</td></tr>
+            <tr><td><code>overrides/lead.py</code></td><td style="text-align:right">356</td><td>Lead layout, Is Company, mandatory fields, Lead → Customer, Date of Convert</td></tr>
+            <tr><td><code>hooks.py</code></td><td style="text-align:right">289</td><td>Wiring (mostly the generated comment template)</td></tr>
+            <tr><td><code>overrides/contact.py</code></td><td style="text-align:right">287</td><td>Contacts mirror; the Lead rolls up its Opportunities'</td></tr>
+            <tr><td><code>leads_activity/leads_activity.py</code></td><td style="text-align:right">241</td><td>DocType controller, qualification, activity mirror</td></tr>
+            <tr><td><code>overrides/tender.py</code></td><td style="text-align:right">162</td><td>Tender Completion Date, its Direct Cost column, Submission Deadline inheritance</td></tr>
+            <tr><td><code>overrides/customer.py</code></td><td style="text-align:right">36</td><td>The Customer's Contacts table</td></tr>
             <tr><td><code>mirror_table.py</code></td><td style="text-align:right">33</td><td>Shared safe writer for all mirror tables</td></tr>
           </tbody>
         </table>
@@ -243,7 +253,7 @@ small.note{display:block;color:var(--muted);font-size:12.5px;margin-top:8px}
     </details>
   </div>
 
-  <h3 class="block" style="margin-left:2px">DocTypes created (5)</h3>
+  <h3 class="block" style="margin-left:2px">DocTypes created (7)</h3>
   <div class="table-box">
     <table>
       <thead><tr><th>DocType</th><th>Kind</th><th>Naming</th><th>Purpose</th></tr></thead>
@@ -253,40 +263,60 @@ small.note{display:block;color:var(--muted);font-size:12.5px;margin-top:8px}
         <tr><td><code>Leads Activity Detail</code></td><td>Child</td><td>—</td><td>Mirror row: activity, type, date, status, assigned_to, attachment count.</td></tr>
         <tr><td><code>Leads Contact Detail</code></td><td>Child</td><td>—</td><td>Mirror row: contact, full_name, email, mobile, phone, designation, primary, linked_via.</td></tr>
         <tr><td><code>Opportunity Project Tender</code></td><td>Child</td><td>—</td><td>Mirror row: tender, project_name, client, status, total_sell_price, activity, creation_date.</td></tr>
+        <tr><td><code>Opportunity Attachment</code></td><td>Child</td><td>—</td><td>Attach + Description, the same pair the activity uses. <code>attachment</code> is <code>reqd</code> per row.</td></tr>
+        <tr><td><code>Opportunity Contribution</code></td><td>Child</td><td>—</td><td>Opportunity Breakdown row: type (civil/mec/elec/elev), contribution type, value, final value (read-only), description.</td></tr>
       </tbody>
     </table>
   </div>
-  <small class="note">All five are owned by this app, so their schema lives in versioned JSON files and travels with <code>bench migrate</code>. Every mirror child DocType carries <code>read_only</code> on each field; the parent's Table field carries <code>read_only: 1</code> and <code>no_copy: 1</code>.</small>
+  <small class="note">All seven are owned by this app, so their schema lives in versioned JSON files and travels with <code>bench migrate</code>. Every mirror child DocType carries <code>read_only</code> on each field; the parent's Table field carries <code>read_only: 1</code> and <code>no_copy: 1</code>.</small>
 
-  <h3 class="block" style="margin-left:2px">Custom Fields (18)</h3>
+  <h3 class="block" style="margin-left:2px">Custom Fields (36)</h3>
   <div class="table-box">
     <table>
       <thead><tr><th>DocType</th><th>Fieldname</th><th>Type</th><th>Label</th><th><code>insert_after</code></th></tr></thead>
       <tbody>
         <tr><td>Lead</td><td><code>custom_is_company</code></td><td>Check</td><td>Is Company</td><td><code>naming_series</code></td></tr>
         <tr><td>Lead</td><td><code>custom_customer_group</code></td><td>Link → Customer Group</td><td>Customer Group</td><td><code>territory</code></td></tr>
+        <tr><td>Lead</td><td><code>date_of_convert</code></td><td>Date (read-only)</td><td>Date of Convert</td><td><code>status</code></td></tr>
         <tr><td>Lead</td><td><code>custom_address_contacts_tab</code></td><td>Tab Break</td><td>Address &amp; Contacts</td><td><code>blog_subscriber</code></td></tr>
         <tr><td>Lead</td><td><code>custom_contacts_section</code></td><td>Section Break</td><td>Contacts</td><td><code>contact_html</code></td></tr>
         <tr><td>Lead</td><td><code>custom_contacts</code></td><td>Table → Leads Contact Detail</td><td>—</td><td><code>custom_contacts_section</code></td></tr>
         <tr><td>Lead</td><td><code>custom_leads_activities_section</code></td><td>Section Break</td><td>Leads Activities</td><td><code>activities_tab</code></td></tr>
         <tr><td>Lead</td><td><code>custom_leads_activities</code></td><td>Table → Leads Activity Detail</td><td>—</td><td><code>custom_leads_activities_section</code></td></tr>
         <tr><td>Lead</td><td><code>custom_open_activities_section</code></td><td>Section Break</td><td>—</td><td><code>custom_leads_activities</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_opportunity_name</code></td><td>Data</td><td>Opportunity Name</td><td><code>naming_series</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_opportunity_description</code></td><td>Small Text</td><td>Opportunity Description</td><td><code>custom_opportunity_name</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_party_lead</code></td><td>Link → Lead (hidden)</td><td>Party Lead</td><td><code>party_name</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_party_customer</code></td><td>Link → Customer (hidden)</td><td>Party Customer</td><td><code>party_name</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_party_prospect</code></td><td>Link → Prospect (hidden)</td><td>Party Prospect</td><td><code>party_name</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_targeted_amount</code></td><td>Currency</td><td>Targeted Amount</td><td><code>base_opportunity_amount</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_opportunity_breakdown_section</code></td><td>Section Break</td><td>Opportunity Breakdown</td><td><code>territory</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_opportunity_contributions</code></td><td>Table → Opportunity Contribution</td><td>Contributions</td><td><code>custom_opportunity_breakdown_section</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_opportunity_attachments_section</code></td><td>Section Break</td><td>Attachments</td><td><code>custom_opportunity_contributions</code></td></tr>
+        <tr><td>Opportunity</td><td><code>custom_opportunity_attachments</code></td><td>Table → Opportunity Attachment</td><td>Attachments</td><td><code>custom_opportunity_attachments_section</code></td></tr>
+        <tr><td>Customer</td><td><code>custom_contacts_section</code></td><td>Section Break</td><td>Contacts</td><td><code>contact_html</code></td></tr>
+        <tr><td>Customer</td><td><code>custom_contacts</code></td><td>Table → Leads Contact Detail</td><td>—</td><td><code>custom_contacts_section</code></td></tr>
         <tr><td>Opportunity</td><td><code>custom_contacts_section</code></td><td>Section Break</td><td>Contacts</td><td><code>contact_display</code></td></tr>
         <tr><td>Opportunity</td><td><code>custom_contacts</code></td><td>Table → Leads Contact Detail</td><td>—</td><td><code>custom_contacts_section</code></td></tr>
         <tr><td>Opportunity</td><td><code>custom_project_tender_tab</code></td><td>Tab Break</td><td>Project Tender</td><td><code>total</code></td></tr>
         <tr><td>Opportunity</td><td><code>custom_project_tenders</code></td><td>Table → Opportunity Project Tender</td><td>Project Tenders</td><td><code>custom_project_tender_tab</code></td></tr>
         <tr><td>Opportunity</td><td><code>custom_approved_project_tender</code></td><td>Link → Project Tender</td><td>Approved Project Tender</td><td><code>custom_project_tenders</code></td></tr>
+        <tr><td>Opportunity</td><td><code>won_date</code></td><td>Date (read-only)</td><td>Won Date</td><td><code>custom_approved_project_tender</code></td></tr>
         <tr><td>Opportunity</td><td><code>custom_leads_activities_section</code></td><td>Section Break</td><td>Opportunity Activities</td><td><code>activities_tab</code></td></tr>
         <tr><td>Opportunity</td><td><code>custom_leads_activities</code></td><td>Table → Leads Activity Detail</td><td>—</td><td><code>custom_leads_activities_section</code></td></tr>
         <tr><td>Opportunity</td><td><code>custom_open_activities_section</code></td><td>Section Break</td><td>—</td><td><code>custom_leads_activities</code></td></tr>
         <tr><td>Project Tender</td><td><code>custom_opportunity</code></td><td>Link → Opportunity</td><td>Opportunity</td><td><code>client</code></td></tr>
         <tr><td>Project Tender</td><td><code>custom_leads_activity</code></td><td>Link → Leads Activity</td><td>Leads Activity</td><td><code>custom_opportunity</code></td></tr>
+        <tr><td>Project Tender</td><td><code>submitted_date</code></td><td>Date (read-only)</td><td>Submitted Date</td><td><code>status</code></td></tr>
+        <tr><td>Project Tender</td><td><code>won_date</code></td><td>Date (read-only)</td><td>Won Date</td><td><code>submitted_date</code></td></tr>
+        <tr><td>Tender</td><td><code>completion_date</code></td><td>Date (read-only)</td><td>Completion Date</td><td><code>submission_deadline</code></td></tr>
+        <tr><td>Project Tender Direct Cost Detail</td><td><code>completion_date</code></td><td>Date (read-only, <code>fetch_from: tender.completion_date</code>, <code>in_list_view</code>)</td><td>Completion Date</td><td><code>tender_status</code></td></tr>
       </tbody>
     </table>
   </div>
-  <small class="note">Defined as dicts in <code>CUSTOM_FIELDS</code> in <code>overrides/{lead,opportunity,project_tender}.py</code> and created by <code>create_custom_fields(..., update=True)</code>. The three on Project Tender are skipped entirely if the <code>contracting</code> app is not installed. <code>custom_opportunity</code> also carries <code>in_standard_filter</code> and <code>search_index</code>; every mirror Table field and both Project Tender links carry <code>no_copy: 1</code> so Duplicate does not clone them.</small>
+  <small class="note">Defined as dicts in <code>CUSTOM_FIELDS</code> in <code>overrides/{lead,opportunity,project_tender,tender}.py</code> and created by <code>create_custom_fields(..., update=True)</code>. The six on Project Tender, Tender and Project Tender Direct Cost Detail are skipped entirely if the <code>contracting</code> app is not installed. The six date fields are named without the <code>custom_</code> prefix the rest of the app uses, because the field names were specified: Frappe v14 only prefixes a Custom Field created with no explicit <code>fieldname</code>, so an explicit one is kept as given — worth knowing before a v15 upgrade, which enforces the prefix on newly created fields. <code>custom_opportunity</code> also carries <code>in_standard_filter</code> and <code>search_index</code>; every mirror Table field and both Project Tender links carry <code>no_copy: 1</code> so Duplicate does not clone them.</small>
 
-  <h3 class="block" style="margin-left:2px">Property Setters (16)</h3>
+  <h3 class="block" style="margin-left:2px">Property Setters (18)</h3>
   <div class="table-box">
     <table>
       <thead><tr><th>DocType</th><th>Field</th><th>Property</th><th>Value</th><th>Purpose</th></tr></thead>
@@ -298,6 +328,8 @@ small.note{display:block;color:var(--muted);font-size:12.5px;margin-top:8px}
         <tr><td>Lead</td><td><code>custom_customer_group</code>, <code>territory</code></td><td><code>mandatory_depends_on</code></td><td><code>eval:1</code></td><td>Always mandatory on the form (2 setters)</td></tr>
         <tr><td>Lead</td><td><code>address_section</code></td><td><code>label</code> / <code>collapsible</code></td><td><code>""</code> / <code>0</code></td><td>In its own tab the heading is redundant (2 setters)</td></tr>
         <tr><td>Lead</td><td><code>contact_html</code></td><td><code>hidden</code></td><td><code>1</code></td><td>Replaced by the Contacts table</td></tr>
+        <tr><td>Opportunity</td><td>—</td><td><code>field_order</code></td><td>full fieldname list (JSON)</td><td>Opportunity Value moved directly above Organization</td></tr>
+        <tr><td>Customer</td><td><code>contact_html</code></td><td><code>hidden</code></td><td><code>1</code></td><td>Replaced by the Contacts table</td></tr>
         <tr><td>Opportunity</td><td><code>status</code></td><td><code>options</code></td><td>core list + <code>Tendering</code>, <code>Won</code></td><td>Built from the original <code>DocField</code> row, never a literal</td></tr>
         <tr><td>Opportunity</td><td><code>contact_html</code></td><td><code>hidden</code></td><td><code>1</code></td><td>Replaced by the Contacts table</td></tr>
       </tbody>
@@ -309,21 +341,37 @@ small.note{display:block;color:var(--muted);font-size:12.5px;margin-top:8px}
 <pre><code>doctype_js = {
     "Lead":        ["public/js/leads_activity_section.js", "public/js/lead.js"],
     "Opportunity": ["public/js/leads_activity_section.js", "public/js/opportunity.js"],
-    "Customer":    ["public/js/customer.js"],
+    "Customer":    ["public/js/leads_activity_section.js", "public/js/customer.js"],
+    "Tender":      "public/js/tender.js",
 }
 
 doc_events = {
     "Lead": {
         "before_validate": "...overrides.lead.clear_person_fields",
         "validate":        ["...overrides.lead.validate_customer_fields",
+                            "...overrides.lead.set_date_of_convert",
                             "...overrides.contact.refresh_own_table"],
         "after_insert":    "...overrides.contact.refresh_after_insert",
     },
+    "Leads Activity": {
+        "validate":  "...overrides.opportunity.validate_activity_source",
+    },
     "Opportunity": {
         "validate":  ["...overrides.contact.refresh_own_table",
-                      "...overrides.project_tender.validate_approved_tender"],
+                      "...overrides.project_tender.validate_approved_tender",
+                      "...overrides.opportunity.set_party_links",
+                      "...overrides.opportunity.set_title",
+                      "...overrides.opportunity.validate_attachments",
+                      "...overrides.opportunity.calculate_contributions",
+                      "...overrides.opportunity.set_won_date"],
         "on_update": ["...overrides.project_tender.apply_approved_tender",
                       "...overrides.contact.refresh_party_lead"],
+        "on_trash":  "...overrides.contact.refresh_party_lead",
+    },
+    "Customer": {
+        "validate":  "...overrides.contact.refresh_own_table",
+        "on_update": ["...overrides.contact.refresh_party_lead",
+                      "...overrides.lead.set_date_of_convert_from_customer"],
         "on_trash":  "...overrides.contact.refresh_party_lead",
     },
     "Contact": {
@@ -331,8 +379,14 @@ doc_events = {
         "on_trash":  "...overrides.contact.on_contact_trash",
     },
     # contracting app; never fires if it isn't installed
+    "Tender": {
+        "before_insert": "...overrides.tender.set_submission_deadline",
+        "validate":      "...overrides.tender.set_completion_date",
+        "on_update":     "...overrides.tender.push_completion_date_to_rows",
+    },
     "Project Tender": {
-        "validate":  "...overrides.project_tender.validate_submitted_rows",
+        "validate":  ["...overrides.project_tender.validate_submitted_rows",
+                      "...overrides.project_tender.set_status_dates"],
         "on_update": "...overrides.project_tender.on_update",
         "on_trash":  "...overrides.project_tender.on_trash",
     },
@@ -341,18 +395,23 @@ doc_events = {
 after_migrate = [
     "...overrides.lead.apply_lead_customizations",
     "...overrides.opportunity.apply_opportunity_customizations",
+    "...overrides.customer.apply_customer_customizations",
     "...overrides.project_tender.apply_project_tender_customizations",
-    # after the three above: they need the custom fields
+    "...overrides.tender.apply_tender_customizations",
+    # after the ones above: they need the custom fields
     "...doctype.leads_activity.leads_activity.backfill_activity_tables",
     "...overrides.project_tender.backfill_opportunity_tenders",
     "...overrides.contact.backfill_contact_tables",
+    "...overrides.opportunity.backfill_party_links",
+    "...overrides.lead.backfill_date_of_convert",
+    "...overrides.tender.backfill_completion_date",
 ]
 
 override_doctype_dashboards = {
     "Lead":        "...overrides.lead.get_dashboard_data",
     "Opportunity": "...overrides.opportunity.get_dashboard_data",
 }</code></pre>
-  <small class="note">Paths abbreviated: each <code>...</code> is <code>custom_crm_updates</code>. 14 <code>doc_events</code> handlers over 4 DocTypes; a list runs in order, and Frappe calls each handler as <code>fn(doc, method)</code>. One whitelisted method exists: <code>overrides.project_tender.get_opportunity_tenders</code>.</small>
+  <small class="note">Paths abbreviated: each <code>...</code> is <code>custom_crm_updates</code>. 29 <code>doc_events</code> handlers over 7 DocTypes; a list runs in order, and Frappe calls each handler as <code>fn(doc, method)</code>. One whitelisted method exists: <code>overrides.project_tender.get_opportunity_tenders</code>.</small>
 </section>
 
 <section id="setup">
@@ -674,9 +733,156 @@ def refresh_tender_rows(doc):
   </div>
 </section>
 
-<section id="multisite">
+<section id="phase4">
   <div class="sheet-head">
     <div class="sheet-no">Part 05</div>
+    <h2>Outward links, joining a parent's table, and the rule layer</h2>
+    <p>Three mechanisms added between 11 and 14 October 2026, after the walkthrough's step 26. The first two are framework mechanics worth knowing in their own right; the third is the shape every business rule in this app now follows.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Mechanism: a Connections card that points <em>outward</em></h3>
+    <p>The Connections tab is built from <code>meta.get_dashboard_data()</code> and resolved per document by <code>frappe.desk.notifications.get_open_count</code>. It knows two kinds of link:</p>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>Kind</th><th>Direction</th><th>Resolved by</th><th>Declared as</th></tr></thead>
+        <tbody>
+          <tr><td>External</td><td>other documents point <em>at</em> this one</td><td><code>get_external_links</code> — a query on the other DocType</td><td><code>fieldname</code>, or <code>non_standard_fieldnames[DocType]</code></td></tr>
+          <tr><td>Internal</td><td>this document points <em>at</em> another</td><td><code>get_internal_links</code> — reads a field on the document in hand</td><td><code>internal_links[DocType]</code>: a fieldname, or <code>[table_fieldname, link_fieldname]</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Showing the Lead or Customer an Opportunity belongs to needs the internal kind, and runs straight into a wall: the party is a <strong>Dynamic Link</strong> (<code>opportunity_from</code> + <code>party_name</code>), while <code>get_internal_links</code> reads exactly one fieldname:</p>
+<pre><code>def get_internal_links(doc, link, link_doctype):
+    if isinstance(link, str):
+        value = doc.get(link)          # one plain field on the parent
+    elif isinstance(link, list):
+        table_fieldname, link_fieldname = link
+        ...                            # one plain field on each child row</code></pre>
+    <p>Pointing both the <code>Lead</code> and the <code>Customer</code> card at <code>party_name</code> would make every Lead-sourced Opportunity show a Customer card linking to a Customer that does not exist. Nor can the dashboard function decide at runtime: <code>get_open_count</code> calls <code>meta.get_dashboard_data()</code>, which is per DocType and never sees the document — only <code>get_internal_links</code> does.</p>
+    <p>So the split lives in the data model. Each party type gets a hidden, read-only, <code>no_copy</code> mirror, filled on every save from the Dynamic Link, and each card reads its own:</p>
+<pre><code>PARTY_FIELDS = {
+    "Lead":     "custom_party_lead",
+    "Customer": "custom_party_customer",
+    "Prospect": "custom_party_prospect",
+}
+
+def set_party_links(doc, method=None):
+    for party_type, fieldname in PARTY_FIELDS.items():
+        doc.set(fieldname, doc.party_name if doc.opportunity_from == party_type else None)</code></pre>
+    <p>Clearing the other two is the half that is easy to forget: an Opportunity re-pointed from a Lead to a Customer would otherwise show both cards for ever.</p>
+    <p>One behaviour of <code>get_open_count</code> is then used deliberately. When an internal link resolves to nothing it <em>falls back</em> to the external query for that DocType:</p>
+<pre><code>if internal_link_for_doctype:
+    internal_links_data_for_d = get_internal_links(doc, internal_link_for_doctype, d)
+    if internal_links_data_for_d["count"]:
+        out["internal_links_found"].append(internal_links_data_for_d)
+    else:
+        external_links_data_for_d = get_external_links(d, name, links)   # ← fallback</code></pre>
+    <p>So one <code>Customer</code> card serves both directions: on a Customer's Opportunity it shows the party, and on a Lead's Opportunity — where the mirror is empty — it shows the Customers converted <em>from</em> this Opportunity, found through <code>non_standard_fieldnames["Customer"] = "opportunity_name"</code>. Project Tender joins the same group as a plain external link on <code>custom_opportunity</code>, guarded by a check that the contracting app is installed.</p>
+    <small class="note">Mirrors are derived values: <code>party_name</code> remains the only field anyone edits, the fields are hidden on the form, and <code>backfill_party_links</code> (after_migrate) fills them for Opportunities that predate them — writing with <code>update_modified=False</code>, because a derived value is not a change anyone made, and skipping rows that already agree so re-running costs nothing.</small>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Mechanism: a document that joins another document's table when it is inserted</h3>
+    <p>A Tender names a Project Tender (<code>Tender.project_tender</code>, mandatory). Since 14 October that is also what costs it in: on insert, the Tender adds its own row to the Project Tender's Direct Cost Details, whether it came from <strong>Create ▸ Tender</strong> or was raised on the Tender form with the Project Tender picked by hand. Three framework details decide how this is written.</p>
+
+    <h4>Where it hooks, and why not <code>on_update</code></h4>
+    <p><code>Document.insert()</code> runs <code>after_insert</code> <em>before</em> <code>run_post_save_methods()</code> calls <code>on_update</code>. That ordering is load-bearing: the Tender's own <code>on_update</code> runs the cross-sync, which looks for Direct Cost rows referencing this Tender. Adding the row in <code>after_insert</code> means the sync finds it on the same save and pushes the Tender's cost into it immediately; an <code>on_update</code> hook would race with it.</p>
+
+    <h4>Re-entrancy: never save the document you are inside</h4>
+    <p>Saving the Project Tender fires its <code>on_update</code>, which pushes <code>propagated_addition_percent</code> down to every linked Tender — including the one still being inserted. That second save writes a new <code>modified</code> for a row whose in-memory copy is about to be returned to the browser, and the user's next save is rejected as stale. The fix is the flag the contracting app already uses for its own loop:</p>
+<pre><code>project_tender.append("direct_cost_details", {"tender": tender_doc.name})
+project_tender.flags.skip_cross_sync = True      # ← do not push back into me
+project_tender.save(ignore_permissions=True)</code></pre>
+    <p>Nothing is lost by suppressing it: the Tender's own <code>on_update</code>, a few lines later, runs the full pass with <code>skip_tender=tender_doc.name</code>, which pushes to every <em>other</em> Tender and deliberately skips this one.</p>
+
+    <h4>Four guards, each for a real failure</h4>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>Guard</th><th>What it prevents</th></tr></thead>
+        <tbody>
+          <tr><td><code>status == "Cancelled"</code></td><td>A cancelled Tender is no part of anyone's price.</td></tr>
+          <tr><td><code>previous_tender</code> set</td><td>A revision would add a <em>second</em> row for the same scope and double-count it. <code>frappe.copy_doc</code> copies <code>no_copy</code> fields, so no marker on the source can be trusted here — see risk 15.</td></tr>
+          <tr><td>already in the table</td><td>The parent's own duplicate check (<code>Tender {0} is added more than once</code>) would throw on the next save.</td></tr>
+          <tr><td>parent not Draft / Under Review</td><td>The price has gone out. A new Tender is Draft, which the status gate below rejects on a Submitted or Won Project Tender — and throwing from <code>after_insert</code> would roll the Tender itself back (risk 17), so the user gets a message instead.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <small class="note">The reverse direction is just as deliberate. Cancelling a Tender removes its rows (<code>remove_cancelled_tender_rows</code>, from <code>on_update</code>, before the cross-sync so no stale cost is pushed), leaving a timeline comment on each Project Tender; rows whose Won automation already ran (<code>row.project</code> set) are never touched, because a Project and a Sales Order exist against them.</small>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Mechanism: recording the date a status was reached</h3>
+    <p>Six fields across four DocTypes record <em>when</em> something happened: <code>Lead.date_of_convert</code>, <code>Tender.completion_date</code>, <code>Project Tender.submitted_date</code> and <code>won_date</code>, <code>Opportunity.won_date</code>, and the mirrored <code>completion_date</code> column on <code>Project Tender Direct Cost Detail</code>. All five writable ones use one shape, and each clause in it answers a specific failure.</p>
+<pre><code>def set_completion_date(doc, method=None):
+    if doc.get(COMPLETION_DATE) or doc.status != COMPLETE:   # 1. already recorded / wrong status
+        return
+    if doc.has_value_changed("status"):                      # 2. this save actually moved it
+        doc.set(COMPLETION_DATE, nowdate())                  # 3. in validate, not on_update</code></pre>
+    <div class="kv">
+      <div>1 · the empty check</div><div><code>has_value_changed</code> alone is not enough. A record that goes Converted → Open → Converted changes its status twice and would be re-stamped with the second date; the rule is "when did this first happen", so a field that already holds a date is never written again.</div>
+      <div>2 · <code>has_value_changed</code></div><div>Without it, every ordinary re-save of a record already in that status would re-stamp it. It compares against <code>get_doc_before_save()</code> and returns <code>True</code> for a new document, so a record created directly in the target status is stamped too.</div>
+      <div>3 · <code>validate</code>, not <code>on_update</code></div><div>In <code>validate</code> the date is part of the same <code>UPDATE</code> as the status it describes: there is no instant at which a tender is Submitted with no Submitted Date, and no second write to roll back separately. For <code>Tender</code> it is the only option — see below.</div>
+    </div>
+
+    <h4 style="margin-top:14px">Why a locked DocType forces the hook into <code>validate</code></h4>
+    <p>Contracting locks a Tender the moment it is Complete: <code>validate_not_complete_locked</code> compares <code>self.as_dict()</code> with <code>get_doc_before_save().as_dict()</code> and throws on any difference. A date written after the status change would therefore be refused for ever. It works because Frappe composes the controller method and the hooks in that order — <code>frappe/model/document.py</code>'s <code>hook</code> decorator runs <code>fn(self)</code> first, then each <code>doc_events</code> handler — so by the time our <code>validate</code> hook writes the field, the lock check has already run and passed against the <em>old</em> status.</p>
+
+    <h4>The one write that no document hook can see</h4>
+    <p><code>Lead.date_of_convert</code> needs a second entry point. ERPNext marks a Lead Converted from the Customer side:</p>
+<pre><code># erpnext/selling/doctype/customer/customer.py
+def update_lead_status(self):
+    if self.lead_name:
+        frappe.db.set_value("Lead", self.lead_name, "status", "Converted")</code></pre>
+    <p>That is a direct <code>UPDATE</code>. No Lead document is loaded, so no <code>validate</code>, no <code>on_update</code>, no <code>doc_events</code> of any kind fire on the Lead — the usual route to Converted, through a Registration activity, would stamp nothing. The second handler therefore hangs off <strong>Customer <code>on_update</code></strong>, re-reads the Lead's status from the database to confirm the conversion, and writes the date the same way, with <code>update_modified=False</code>. The lesson generalises: <strong>before hooking a status, grep for <code>db.set_value</code> and <code>db_set</code> on that field</strong> — a framework that lets code bypass the document layer will have done so somewhere.</p>
+
+    <h4>Mirroring a date onto a child row without a sync function</h4>
+    <p>The Completion Date column on Direct Cost Details is not a mirror table: it is a Custom Field with <code>fetch_from: "tender.completion_date"</code>. Frappe re-resolves every <code>fetch_from</code> on each save of the <em>parent</em> (<code>base_document.py</code>, in the link-validation pass), and contracting's <code>sync_tender_to_project_tenders</code> already saves every linked Project Tender whenever a Tender is saved — so the column follows with no code at all. <code>push_completion_date_to_rows</code> writes the same value directly onto the rows as well, the way <code>cross_sync</code> writes <code>tender_total</code>, for the paths where that parent save is skipped.</p>
+    <small class="note">Backfills differ by what evidence exists. A Lead's conversion date comes from its Customer's <code>creation</code>; Leads marked Converted by hand with no Customer stay blank rather than being given the migrate's date. A Tender's comes from <code>modified</code>, which is sound <em>because</em> Complete locks the record — nothing has been able to save it since. Project Tender and Opportunity get no backfill: both are re-saved routinely, so <code>modified</code> would be a guess, and a wrong date is worse than an empty field.</small>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">Mechanism: inheriting a value at creation only</h3>
+    <p>A Tender raised under a Project Tender takes its Submission Deadline from the Expected Closing Date of the Opportunity behind that Project Tender — two links away: <code>Tender.project_tender</code> → <code>Project Tender.custom_opportunity</code> → <code>Opportunity.expected_closing</code>. Three mechanisms could carry a value across, and only one has the right semantics.</p>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>Mechanism</th><th>Follows two links?</th><th>Stays editable?</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td><code>default</code> on the field</td><td>No — a literal or a single session value</td><td>Yes</td><td>Cannot express the lookup</td></tr>
+          <tr><td><code>fetch_from</code></td><td>No — one hop from a Link on the same document</td><td><strong>No</strong> — re-resolved on every save</td><td>Would overwrite the user's own date, for ever</td></tr>
+          <tr><td><code>before_insert</code> hook</td><td>Yes</td><td>Yes — it runs once</td><td>Used</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>That middle row is the point worth keeping: <code>fetch_from</code> is a <em>continuous</em> relationship, not a default. Any field the user is meant to be able to change afterwards has to be filled imperatively, once, and <code>before_insert</code> is where "once" lives. The hook writes only into an empty field, so a value supplied by contracting's <code>make_tender</code> mapper or typed by the user wins over the inherited one.</p>
+    <p>The form script in <code>public/js/tender.js</code> performs the same lookup on the <code>project_tender</code> change and on <code>onload</code> of a new Tender — the second because <strong>Create ▸ Tender</strong> opens a document whose link is already set, so no change event ever fires. It re-checks that the field is still empty when the lookup returns, since the user may have typed a date while the two requests were in flight. It is a convenience: the server hook is what holds for the REST API, Data Import and the bench console.</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="block">The rule layer: where each business rule is actually enforced</h3>
+    <p>Every rule added in this phase follows the same shape — the form states it, the server decides it, and nothing relies on a field property as the rule. <code>mandatory_depends_on</code> in particular is evaluated on the form only in Frappe v14 (<code>layout.js</code> turns it into <code>reqd</code> as fields change); it is set for the red asterisk, never as the enforcement.</p>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>Rule</th><th>Decided by</th><th>Shown by</th><th>Deliberately exempt</th></tr></thead>
+        <tbody>
+          <tr><td>An Opportunity needs at least one attachment</td><td><code>validate_attachments</code> (Opportunity validate)</td><td><code>validate</code> in <code>opportunity.js</code>, same message</td><td>Saves with <code>ignore_permissions</code> / <code>ignore_mandatory</code> — the Opportunities ERPNext raises from an incoming email have nothing to attach</td></tr>
+          <tr><td>Every activity on a Lead or an Opportunity needs an attachment; a Registration needs one whatever it is linked to</td><td><code>LeadsActivity.validate_attachment</code></td><td><code>mandatory_depends_on</code> on the table + <code>validate</code> in <code>leads_activity.js</code></td><td>A Prospect's non-Registration activities</td></tr>
+          <tr><td>No activity against an Opportunity whose attachments table is empty</td><td><code>validate_activity_source</code> (Leads Activity validate) — reads the database, because the activity is a separate document and the paperwork has to be <em>saved</em></td><td><code>has_attachment</code> refuses before the activity form opens</td><td>System saves (<code>ignore_permissions</code>), e.g. <code>mark_activity_done</code></td></tr>
+          <tr><td>A Project Tender reaches Submitted or Won only when every Tender it is costed from is Complete</td><td><code>validate_linked_tenders_complete</code> (contracting)</td><td>The thrown message names each row, its Tender and that Tender's status</td><td>Rows whose Won automation already ran (<code>row.project</code>)</td></tr>
+          <tr><td>A Cancelled Tender is not in a Direct Cost table</td><td><code>validate_direct_cost_details</code> backstop + <code>remove_cancelled_tender_rows</code></td><td><code>set_tender_query</code> hides them in the row picker</td><td>Rows whose Won automation already ran</td></tr>
+          <tr><td>Only a Submitted Project Tender can be the approved one</td><td><code>get_opportunity_tenders</code> filters on <code>APPROVABLE_STATUS</code>, so the pop-up cannot offer anything else</td><td>Two different "nothing to approve" messages: no tenders at all, or none Submitted</td><td>A save made over the API — <code>validate_approved_tender</code> still checks only that the tender belongs to this Opportunity</td></tr>
+          <tr><td>Each breakdown row's Final Value</td><td><code>calculate_contributions</code> (Opportunity validate) recomputes every row from the Targeted Amount, whatever was sent</td><td>The client script fills it as the user types; the field is read-only</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Two patterns recur in that table and are worth lifting out. First, <strong>a rule that the framework would also apply to its own writes belongs in <code>validate</code>, not in <code>reqd</code></strong>: ERPNext creates Leads and Opportunities on its own (website form, incoming email) and passes <code>ignore_permissions</code> or <code>ignore_mandatory</code> when it does, which a validate hook can honour and a field property cannot. Second, <strong>"already settled" is a guard every automation needs</strong>: <code>row.project</code> means the Won automation has run, and five separate rules skip such rows rather than re-litigate history.</p>
+    <small class="note">A row the user added but never picked a file for is not an attachment: every one of these checks filters on the file being present, so the user gets the message that says what is needed rather than Frappe's generic <em>mandatory field in row 1</em>.</small>
+  </div>
+</section>
+
+<section id="multisite">
+  <div class="sheet-head">
+    <div class="sheet-no">Part 06</div>
     <h2>Multi-site behaviour and cross-site concurrency</h2>
     <p>This bench serves two sites from one copy of the code. Understanding what is shared and what is not is the difference between a deployment that works and one that half-works.</p>
   </div>
@@ -742,7 +948,7 @@ bench restart                               # reload Python in web + workers</co
 
 <section id="security">
   <div class="sheet-head">
-    <div class="sheet-no">Part 06</div>
+    <div class="sheet-no">Part 07</div>
     <h2>Permissions, trust boundaries and injection surface</h2>
     <p>Where this app bypasses permissions on purpose, where it re-checks them, and what is deliberately not treated as a security control.</p>
   </div>
@@ -826,9 +1032,9 @@ def get_opportunity_tenders(opportunity):
 
 <section id="steps">
   <div class="sheet-head">
-    <div class="sheet-no">Part 07</div>
+    <div class="sheet-no">Part 08</div>
     <h2>Step index — files, configuration and key symbols</h2>
-    <p>The same 24 steps as the walkthrough, in build order, with everything needed to find the code. Mechanism tags: <span class="tag cfg">CF</span> Custom Field · <span class="tag cfg">PS</span> Property Setter · <span class="tag py">HK</span> Hook · <span class="tag js">CS</span> Client Script · <span class="tag cfg">DT</span> DocType.</p>
+    <p>The same 42 steps as the walkthrough, in build order, with everything needed to find the code. Steps 34-37 live in the <strong>contracting</strong> app, which owns Project Tender and Tender; everything else is in <code>custom_crm_updates</code> — including steps 38-42, which add fields and hooks to contracting's DocTypes from outside it. Mechanism tags: <span class="tag cfg">CF</span> Custom Field · <span class="tag cfg">PS</span> Property Setter · <span class="tag py">HK</span> Hook · <span class="tag js">CS</span> Client Script · <span class="tag cfg">DT</span> DocType.</p>
   </div>
   <div class="table-box">
     <table>
@@ -860,6 +1066,23 @@ def get_opportunity_tenders(opportunity):
         <tr><td>24</td><td>Ordering · Arabic messages</td><td>HK · CS</td><td>all four sync functions; every <code>throw</code>/<code>msgprint</code></td><td><code>order_by="creation asc"</code>; Arabic source strings inside <code>_()</code></td></tr>
         <tr><td>25</td><td>Lead rolls up its Opportunities' contacts</td><td>HK</td><td><code>overrides/contact.py</code>, <code>hooks.py</code></td><td><code>contact_sources</code>, <code>lead_of</code>, <code>affected_docs</code>, <code>refresh_party_lead</code></td></tr>
         <tr><td>26</td><td>Create ▸ Opportunity on Customer</td><td>CS</td><td><code>public/js/customer.js</code>, <code>hooks.py</code></td><td><code>open_mapped_doc</code> → <code>erpnext…customer.make_opportunity</code></td></tr>
+        <tr><td>27</td><td>Opportunity Name, Description, title</td><td>CF · HK</td><td><code>overrides/opportunity.py</code>, <code>hooks.py</code></td><td><code>NAME_FIELD</code>, <code>set_title</code></td></tr>
+        <tr><td>28</td><td>An Opportunity needs an attachment</td><td>DT · CF · HK · CS</td><td><code>doctype/opportunity_attachment/</code>, <code>overrides/opportunity.py</code>, <code>public/js/opportunity.js</code></td><td><code>ATTACHMENTS_FIELD</code>, <code>validate_attachments</code>, <code>require_attachment</code></td></tr>
+        <tr><td>28b</td><td>No activity on an Opportunity with no attachment</td><td>HK · CS</td><td><code>overrides/opportunity.py</code>, <code>public/js/leads_activity_section.js</code></td><td><code>validate_activity_source</code>, <code>ACTIVITY_SOURCE_TABLES</code>, <code>has_attachment</code></td></tr>
+        <tr><td>29</td><td>Opportunity Value above Organization + Targeted Amount</td><td>CF · PS</td><td><code>overrides/opportunity.py</code> (<code>move_section</code> from <code>overrides/lead.py</code>)</td><td><code>TARGETED_AMOUNT</code>, <code>apply_field_order</code>, <code>VALUE_SECTION</code></td></tr>
+        <tr><td>30</td><td>Opportunity Breakdown</td><td>DT · CF · HK · CS</td><td><code>doctype/opportunity_contribution/</code>, <code>overrides/opportunity.py</code>, <code>public/js/opportunity.js</code></td><td><code>calculate_contributions</code>, <code>PERCENTAGE</code>, <code>calculate_contribution</code></td></tr>
+        <tr><td>31</td><td>Every activity on a Lead/Opportunity needs an attachment</td><td>HK · PS · CS</td><td><code>doctype/leads_activity/</code> (py, json, js)</td><td><code>validate_attachment</code>, <code>ATTACHMENT_LINK_TYPES</code>, <code>mandatory_depends_on</code></td></tr>
+        <tr><td>32</td><td>Contacts table on the Customer; Lead rolls it up</td><td>CF · PS · HK · CS</td><td><code>overrides/customer.py</code>, <code>overrides/contact.py</code>, <code>public/js/customer.js</code></td><td><code>apply_customer_customizations</code>, <code>contact_sources</code>, <code>lead_in</code>, <code>ROLLED_UP</code></td></tr>
+        <tr><td>33</td><td>Connections shows the client</td><td>CF · HK</td><td><code>overrides/opportunity.py</code>, <code>hooks.py</code></td><td><code>PARTY_FIELDS</code>, <code>set_party_links</code>, <code>backfill_party_links</code>, <code>get_dashboard_data</code></td></tr>
+        <tr><td>34</td><td>Create ▸ Tender on Project Tender</td><td>CS</td><td>contracting: <code>doctype/project_tender/</code> (py, js)</td><td><code>make_tender</code>, <code>open_mapped_doc</code>, <code>field_no_map</code></td></tr>
+        <tr><td>35</td><td>A Tender joins the Direct Cost table on insert</td><td>HK</td><td>contracting: <code>project_tender.py</code>, <code>tender.py</code></td><td><code>add_tender_to_direct_cost</code>, <code>AUTO_DIRECT_COST_STATUSES</code>, <code>skip_cross_sync</code></td></tr>
+        <tr><td>36</td><td>Cancelled Tender status, excluded from direct cost</td><td>DT · HK · CS</td><td>contracting: <code>tender.json</code>, <code>project_tender.py</code>, <code>project_tender.js</code></td><td><code>CANCELLED</code>, <code>remove_cancelled_tender_rows</code>, <code>set_tender_query</code></td></tr>
+        <tr><td>37</td><td>Submitted/Won need every Tender Complete</td><td>HK</td><td>contracting: <code>project_tender.py</code></td><td><code>validate_linked_tenders_complete</code>, <code>STATUSES_REQUIRING_COMPLETE_TENDERS</code></td></tr>
+        <tr><td>38</td><td>Date of Convert on the Lead</td><td>CF · HK</td><td><code>overrides/lead.py</code>, <code>hooks.py</code></td><td><code>CONVERT_DATE</code>, <code>set_date_of_convert</code> (Lead validate), <code>set_date_of_convert_from_customer</code> (Customer on_update), <code>backfill_date_of_convert</code></td></tr>
+        <tr><td>39</td><td>Completion Date on the Tender + its Direct Cost column</td><td>CF · HK</td><td><code>overrides/tender.py</code>, <code>hooks.py</code></td><td><code>COMPLETION_DATE</code>, <code>set_completion_date</code> (Tender validate), <code>push_completion_date_to_rows</code>, <code>fetch_from: tender.completion_date</code></td></tr>
+        <tr><td>40</td><td>Submitted / Won dates, and the Opportunity's Won Date</td><td>CF · HK · DT</td><td><code>overrides/project_tender.py</code>, <code>overrides/opportunity.py</code>, <code>opportunity_project_tender/*</code></td><td><code>STATUS_DATE_FIELDS</code>, <code>set_status_dates</code>, <code>WON_DATE</code>, <code>set_won_date</code>, <code>TENDER_ROW_FIELDS</code></td></tr>
+        <tr><td>41</td><td>Submission Deadline inherited from the Opportunity</td><td>HK · CS</td><td><code>overrides/tender.py</code>, <code>public/js/tender.js</code></td><td><code>set_submission_deadline</code> (Tender <code>before_insert</code>), <code>expected_closing</code></td></tr>
+        <tr><td>42</td><td>The Won pop-up offers Submitted tenders only</td><td>HK · CS</td><td><code>overrides/project_tender.py</code>, <code>public/js/opportunity.js</code></td><td><code>APPROVABLE_STATUS</code>, <code>get_opportunity_tenders</code>, <code>nothing_to_approve</code></td></tr>
       </tbody>
     </table>
   </div>
@@ -1048,7 +1271,7 @@ function pick_approved_tender(frm, tenders) {
 
 <section id="risks">
   <div class="sheet-head">
-    <div class="sheet-no">Part 08</div>
+    <div class="sheet-no">Part 09</div>
     <h2>Risks and pitfalls when repeating these solutions</h2>
     <p>Each item is a real failure mode of the patterns in this document — several were hit during development.</p>
   </div>
@@ -1136,13 +1359,55 @@ function pick_approved_tender(frm, tenders) {
     <p>The text then cannot be overridden per site or per user, and a bilingual site is stuck with one language.</p>
     <p><strong>Mitigation:</strong> keep the string inside <code>_()</code> even when it is already in the target language, as this app does. Remember that <code>_()</code> resolves against the <em>user's</em> language — which is exactly why a <code>translations/ar.csv</code> would not have worked here: every user on this bench is set to <code>en</code>.</p>
   </div>
+
+  <div class="risk-item">
+    <h4>15 · Assuming <code>frappe.copy_doc</code> respects <code>no_copy</code></h4>
+    <p>It does the opposite by default: the signature is <code>copy_doc(doc, ignore_no_copy=True)</code>, and its docstring is the single line <em>"No_copy fields also get copied."</em> A one-shot marker field carried into a clone silently re-runs whatever it marks. Here, a Tender raised from a Project Tender used to carry a flag; <code>create_revised_version</code> clones with <code>copy_doc</code>, so every revision arrived with the flag set and would have added a second Direct Cost row for the same scope — double-counting the price.</p>
+    <p><strong>Mitigation:</strong> never rely on <code>no_copy</code> to stop a clone; gate on something the clone genuinely differs by (<code>previous_tender</code> is set on a revision and on nothing else). Pin it with a test that clones and asserts the automation did <em>not</em> run.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>16 · An automation that collides with the manual step it replaces</h4>
+    <p>Making a child join its parent's table automatically breaks every flow that still adds that row by hand — the parent's own duplicate guard then throws on save. Ten existing tests in the contracting app did exactly that, and so would any user with the old habit.</p>
+    <p><strong>Mitigation:</strong> when automating a step, find every existing caller of the manual version first (<code>grep</code> for the <code>append(</code>) and decide per site whether it is now redundant or still needed — one of those ten was kept, because its Project Tender is already Won by then and the automation deliberately skips those.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>17 · Throwing from <code>after_insert</code></h4>
+    <p>The exception propagates out of <code>insert()</code> and rolls the whole document back. An automation that writes to <em>another</em> document from <code>after_insert</code> therefore inherits that document's validation: if the parent refuses the write, the child the user was creating disappears with it, and the error names the wrong document.</p>
+    <p><strong>Mitigation:</strong> check the parent's preconditions before writing and degrade to a message instead of an exception. Here a Tender only joins a Project Tender that is still Draft or Under Review; on a Submitted or Won one the status gate would refuse the row, so the Tender is saved and the user is told the row was skipped.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>18 · Comparing a document's <code>modified</code> with one read back from the database</h4>
+    <p><code>doc.modified</code> is a string; <code>frappe.db.get_value(..., "modified")</code> is a <code>datetime</code>. <code>!=</code> is therefore always true, and a staleness check written that way reports a bug that isn't there — as one of this project's own checks did, including for a control case that touched none of the new code.</p>
+    <p><strong>Mitigation:</strong> compare as strings, which is what <code>mirror_table.rows_differ</code> already does for exactly this reason. When a check fails, run it against a case the change cannot have affected before believing it.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>19 · Hooking a status that the framework also writes with <code>db.set_value</code></h4>
+    <p>A <code>doc_events</code> handler only runs when a document is saved. ERPNext marks a Lead <code>Converted</code> with <code>frappe.db.set_value</code> from <code>Customer.update_lead_status</code> — a direct <code>UPDATE</code> that loads no Lead, so no Lead hook of any kind fires. A Date-of-Convert hook on the Lead alone would have been correct, tested, and silently wrong for the most common route into that status.</p>
+    <p><strong>Mitigation:</strong> before hooking a status transition, <code>grep -rn 'db.set_value\|db_set' </code> for that field across the installed apps, and add a handler on whichever document <em>is</em> saved on that path. Test the indirect route, not just the direct one: here <code>test_set_when_a_customer_is_raised_from_the_lead</code> is the test that would have caught it.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>20 · Reaching for <code>fetch_from</code> where a value must stay editable</h4>
+    <p><code>fetch_from</code> is re-resolved on every save of the document, not only on insert. Used as a "default from a related record" it quietly overwrites whatever the user typed, every time they save — and the bug looks like the form losing their input at random. It is a continuous relationship, not a default.</p>
+    <p><strong>Mitigation:</strong> a value the user may change afterwards is filled imperatively in <code>before_insert</code>, into an empty field only. Keep <code>fetch_from</code> for genuinely derived, read-only columns — which is exactly what the Completion Date column on Direct Cost Details is.</p>
+  </div>
+
+  <div class="risk-item">
+    <h4>21 · Adding a field to a DocType that locks itself</h4>
+    <p>Contracting refuses any edit of a Complete Tender by diffing the document against its pre-save copy. Writing the completion date in <code>on_update</code>, or in a later save, would be refused for ever — and the first sign of it is an exception on a status change that used to work.</p>
+    <p><strong>Mitigation:</strong> write the value in <code>validate</code>, where it joins the same <code>UPDATE</code> as the status. Frappe composes the controller's own method before the <code>doc_events</code> handlers, so the lock check runs against the previous state and the new field rides along with the transition it describes.</p>
+  </div>
 </section>
 
 <section id="tests">
   <div class="sheet-head">
-    <div class="sheet-no">Part 09</div>
+    <div class="sheet-no">Part 10</div>
     <h2>Test coverage</h2>
-    <p>90 tests in two files, 1,080 lines. Each class extends <code>FrappeTestCase</code>, which wraps the class in a transaction and rolls it back, so tests create their own Leads, Opportunities, activities and tenders and leave nothing behind.</p>
+    <p>154 tests in three files, 1,862 lines, plus 40 in the contracting app's <code>test_project_tender.py</code> (13 of them for the Tender ↔ Project Tender work described in Part 05). Each class extends <code>FrappeTestCase</code>, which wraps the class in a transaction and rolls it back, so tests create their own Leads, Opportunities, activities and tenders and leave nothing behind.</p>
   </div>
 
   <div class="panel">
@@ -1155,9 +1420,13 @@ function pick_approved_tender(frm, tenders) {
           <tbody>
             <tr><td><code>TestLeadsActivity</code></td><td style="text-align:right">21</td><td>Qualification rules, mirror table, re-linking, deletes, stale-form rejection, backfill idempotence</td></tr>
             <tr><td><code>TestTendering</code></td><td style="text-align:right">12</td><td>Tender creation, one-per-activity, Submitted → activity Done, table order, the creation message</td></tr>
-            <tr><td><code>TestApprovedTender</code></td><td style="text-align:right">9</td><td>Won → approved tender, other tenders untouched, re-save, wrong-Opportunity rejection, popup list</td></tr>
-            <tr><td><code>TestContactsTable</code></td><td style="text-align:right">15</td><td>Opportunity shows only its own; the Lead rolls up its Opportunities'; re-pointing and deleting an Opportunity; de-duplication; ordering; backfill cleanup</td></tr>
-            <tr><td><code>TestRegistrationAttachment</code></td><td style="text-align:right">8</td><td>Every path into the attachment rule, including file-less rows and <code>mandatory_depends_on</code></td></tr>
+            <tr><td><code>TestApprovedTender</code></td><td style="text-align:right">11</td><td>Won → approved tender, other tenders untouched, re-save, wrong-Opportunity rejection, and the pop-up list: Submitted only, nothing past Submitted</td></tr>
+            <tr><td><code>TestContactsTable</code></td><td style="text-align:right">24</td><td>Opportunity shows only its own; the Lead rolls up its Opportunities'; re-pointing and deleting an Opportunity; de-duplication; ordering; backfill cleanup</td></tr>
+            <tr><td><code>TestActivityAttachment</code></td><td style="text-align:right">11</td><td>Every path into the attachment rule, including file-less rows and <code>mandatory_depends_on</code></td></tr>
+            <tr><td><code>TestTenderDates</code></td><td style="text-align:right">7</td><td>Completion Date on the transition and on the Direct Cost row; Submission Deadline inherited, not overwritten, still editable, empty with no Opportunity. Skips itself when contracting is absent</td></tr>
+            <tr><td><code>TestLeadConvertDate</code></td><td style="text-align:right">6</td><td>Both routes to Converted (the form and the Customer's direct write), other statuses, and that the first date is the one kept</td></tr>
+            <tr><td><code>TestProjectTenderStatusDates</code></td><td style="text-align:right">5</td><td>Submitted and Won dates, a status with no date of its own, the mirrored columns on the Opportunity</td></tr>
+            <tr><td><code>TestOpportunityWonDate</code></td><td style="text-align:right">3</td><td>Stamped on the move to Won, absent before it, never moved by a second win</td></tr>
             <tr><td><code>TestOpportunityActivities</code></td><td style="text-align:right">8</td><td>Opportunity activities separate from the Lead's, dashboard counts, layout</td></tr>
             <tr><td><code>TestLeadToCustomer</code></td><td style="text-align:right">6</td><td>Registration Done → Customer, group/territory inheritance, convert-once</td></tr>
             <tr><td><code>TestSubmittedRequirements</code></td><td style="text-align:right">5</td><td>Each of the three cost tables individually, plus other statuses needing none</td></tr>
@@ -1177,28 +1446,31 @@ function pick_approved_tender(frm, tenders) {
       <div>Thin fixture rows</div><div><code>fill_cost_tables</code> appends empty rows and sets <code>flags.ignore_mandatory</code>, because standing up a real <code>Tender</code> with its BOQ would test the <code>contracting</code> app rather than this rule. Where that artifice would distort the result, the test writes the status with <code>frappe.db.set_value</code> instead.</div>
       <div>Message assertions</div><div>Tests assert both the Arabic fragment and the English field names in the same message, so neither half can regress.</div>
       <div>Negative pinning</div><div><code>test_submitted_tender_marks_only_its_activity_done</code> asserts the Opportunity is <em>not</em> moved on — the removed automation of modification 1 cannot come back unnoticed.</div>
+      <div>Idempotence as an assertion</div><div>Every date test asserts three things, not one: stamped on the transition, <em>not</em> stamped by a status that has no date of its own, and <em>not</em> moved by a second visit to the same status. The rule under test is "once, on the change" — asserting only that the field is non-empty would pass against code that re-stamps on every save.</div>
+      <div><code>skipTest</code> for an optional app</div><div><code>TestTenderDates.setUp</code> skips the class when <code>Tender</code> does not exist, so the suite still runs green on a site without <code>contracting</code> — matching the <code>frappe.db.exists</code> guards in the setup functions themselves.</div>
     </div>
 <pre class="sm" style="margin-top:14px"><code>bench --site &lt;test-site&gt; run-tests --app custom_crm_updates
 bench --site &lt;test-site&gt; run-tests --module custom_crm_updates.tests.test_crm_automation</code></pre>
     <div class="callout">
       <div class="ic">Known failure</div>
-      <p><strong>89 of 90 pass.</strong> <code>TestLeadCustomerFields.test_mandatory_when_saved_by_a_user</code> fails on this bench, and fails identically with the Phase 2 work stashed — it is pre-existing. Cause: ERPNext's <code>before_tests</code> writes user defaults for Customer Group and Territory, and <code>Document.insert</code> fills empty fields from the defaults of a new doc, so the mandatory error never fires inside the runner. The rule works outside it. Run tests on a dedicated site: on a live site ERPNext's sample records are committed permanently.</p>
+      <p><strong>151 of 154 pass.</strong> Three failures, all confirmed pre-existing by stashing the current work and re-running: <code>TestApprovedTender.test_status_other_than_won_leaves_the_tenders_alone</code> (it saves an Opportunity with status <code>"Quotation"</code>, which is not one of the field's options), <code>TestActivityAttachment.test_the_form_marks_the_table_mandatory</code> (expects <code>["Lead", "Opportunity"]</code> in a <code>mandatory_depends_on</code> that currently reads <code>["Lead"]</code>), and <code>TestLeadCustomerFields.test_mandatory_when_saved_by_a_user</code>. Cause of the last: ERPNext's <code>before_tests</code> writes user defaults for Customer Group and Territory, and <code>Document.insert</code> fills empty fields from the defaults of a new doc, so the mandatory error never fires inside the runner. The rule works outside it. Run tests on a dedicated site: on a live site ERPNext's sample records are committed permanently.</p>
     </div>
   </div>
 </section>
 
 <section id="assumptions">
   <div class="sheet-head">
-    <div class="sheet-no">Part 10</div>
+    <div class="sheet-no">Part 11</div>
     <h2>Assumptions and provenance</h2>
     <p>What in this document is measured, what is inferred.</p>
   </div>
   <div class="panel">
     <div class="kv">
-      <div>Measured</div><div>Custom Field, Property Setter and DocType lists were read from <code>site1.local</code>'s database. Line counts come from <code>wc -l</code> on the working tree. Test counts come from parsing the test files. Code excerpts are copied from the current source.</div>
-      <div>Chronology</div><div>Inferred. This app has two commits (7 Oct 2026), so the 24-step order comes from the project's own code guide, which records the build order, plus the two-phase timeline in <code>docs/custom-crm-updates.html</code>. Relative order is reliable; exact times within a day are not.</div>
+      <div>Scope</div><div>Steps 27-37 added the <strong>contracting</strong> app to this document's scope: Project Tender and Tender live there, and four of those steps change that app's own DocTypes rather than layering Custom Fields on ERPNext's. Steps 38-42 extend both of those DocTypes again, but from <code>custom_crm_updates</code> only — Custom Fields and hooks, with no contracting file edited. Everything in the Inventory below counts <code>custom_crm_updates</code> only.</div>
+      <div>Measured</div><div>Custom Field, Property Setter and DocType lists were read from <code>site1.local</code>'s database and the app's setup code. Line counts come from <code>wc -l</code> on the working tree. Test counts come from parsing the test files. Code excerpts are copied from the current source.</div>
+      <div>Chronology</div><div>Steps 1-26: inferred. This app has two commits (7 Oct 2026), so that order comes from the project's own code guide, which records the build order, plus the timeline in <code>docs/custom-crm-updates.html</code>. Relative order is reliable; exact times within a day are not. Steps 27-37 (11-14 Oct 2026) and steps 38-42 (15 Oct 2026) are not inferred — they were built in the order listed, one request at a time.</div>
       <div>Rationale</div><div>Where a "why" was not written in a comment or commit message, it is inferred from the code and from ERPNext conventions. The inferences are: that the HTML-field first attempt at the activities list was replaced for grid features (supported by <code>OBSOLETE_CUSTOM_FIELDS</code>); that company Leads were being given invented person names (motivates step 1); and that duplicate manual tenders motivated the confirmation message of modification 3.</div>
-      <div>Framework behaviour</div><div>Statements about Frappe internals were verified against the installed v14 source in <code>apps/frappe</code>: <code>Document._save</code> ordering, <code>CustomField.validate</code>'s <code>idx</code> rule, <code>Meta.sort_fields</code>, <code>save.js</code>'s <code>check_mandatory</code> running after the <code>validate</code> trigger, <code>frappe.model.has_value</code> handling Table fields, and <code>select.js</code>'s <code>parse_option</code>. They may differ in v15.</div>
+      <div>Framework behaviour</div><div>Statements about Frappe internals were verified against the installed v14 source in <code>apps/frappe</code>: <code>Document._save</code> ordering, <code>CustomField.validate</code>'s <code>idx</code> rule, <code>Meta.sort_fields</code>, <code>save.js</code>'s <code>check_mandatory</code> running after the <code>validate</code> trigger, <code>frappe.model.has_value</code> handling Table fields, <code>select.js</code>'s <code>parse_option</code>, the <code>hook</code> decorator composing a controller method ahead of its <code>doc_events</code> handlers, <code>base_document._validate_links</code> re-resolving <code>fetch_from</code> on every save, and <code>CustomField.set_fieldname</code> prefixing <code>custom_</code> only when no <code>fieldname</code> is given. They may differ in v15 — the last one in particular.</div>
       <div>Not covered</div><div>The <code>contracting</code> app's internals beyond the fields and statuses this app touches; ERPNext's own CRM features that were left unchanged; and anything about <code>friendmix.local</code> beyond its existence — only <code>site1.local</code> was inspected.</div>
     </div>
   </div>
@@ -1238,15 +1510,19 @@ bench --site &lt;test-site&gt; run-tests --module custom_crm_updates.tests.test_
 
   var CHARTS = {
     chartLoc: {
-      labels: ["project_tender.py", "lead.py", "hooks.py", "contact.py", "leads_activity.py", "opportunity.py", "mirror_table.py"],
-      data: [354, 268, 254, 239, 220, 98, 33],
+      labels: ["opportunity.py", "project_tender.py", "lead.py", "hooks.py", "contact.py", "leads_activity.py", "tender.py", "customer.py", "mirror_table.py"],
+      data: [426, 416, 356, 289, 287, 241, 162, 36, 33],
       label: "Lines"
     },
     chartTests: {
-      labels: ["TestLeadsActivity", "TestContactsTable", "TestTendering", "TestApprovedTender",
-               "TestRegistrationAttachment", "TestOpportunityActivities", "TestLeadToCustomer",
-               "TestSubmittedRequirements", "TestLeadLayout", "TestLeadCustomerFields"],
-      data: [21, 15, 12, 9, 8, 8, 6, 5, 3, 3],
+      labels: ["TestContactsTable", "TestLeadsActivity", "TestTendering", "TestActivityAttachment",
+               "TestApprovedTender", "TestOpportunityActivities", "TestOpportunityConnections",
+               "TestTenderDates", "TestOpportunityBreakdown", "TestLeadToCustomer",
+               "TestLeadConvertDate", "TestOpportunityAttachments", "TestOpportunityLayout",
+               "TestSubmittedRequirements", "TestProjectTenderStatusDates", "TestOpportunityTitle",
+               "TestLeadLayout", "TestLeadCustomerFields", "TestActivityNeedsSourceAttachment",
+               "TestOpportunityWonDate"],
+      data: [24, 21, 12, 11, 11, 8, 7, 7, 6, 6, 6, 5, 5, 5, 5, 3, 3, 3, 3, 3],
       label: "Tests"
     }
   };

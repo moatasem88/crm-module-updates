@@ -18,25 +18,35 @@ REF = [
 	("overrides/lead.py", "insert_customer", "called by conversions", "Saves a mapped Customer, or explains which of Customer Group / Territory is missing."),
 	("overrides/lead.py", "validate_customer_fields", "Lead validate", "Requires Customer Group and Territory when a person saves a Lead."),
 	("overrides/lead.py", "clear_person_fields", "Lead before_validate", "Empties person fields of a company Lead and sets Full Name to the company name."),
+	("overrides/lead.py", "set_date_of_convert", "Lead validate", "Stamps Date of Convert the first time the status becomes Converted."),
+	("overrides/lead.py", "set_date_of_convert_from_customer", "Customer on_update", "Stamps the same date when ERPNext converts the Lead by raising its Customer."),
+	("overrides/lead.py", "backfill_date_of_convert", "after_migrate", "Fills the date for Leads converted before the field existed, from their Customer."),
 	("overrides/opportunity.py", "apply_opportunity_customizations", "after_migrate", "Creates Opportunity custom fields, adds Tendering/Won, hides contact_html, applies the field order."),
 	("overrides/opportunity.py", "apply_field_order", "called by the above", "Rebuilds the Opportunity's field_order: the Opportunity Value section above Organization."),
 	("overrides/opportunity.py", "set_party_links", "Opportunity validate", "Mirrors the party into a plain Link field per type, for the Connections tab."),
 	("overrides/opportunity.py", "backfill_party_links", "after_migrate", "Fills those mirrors for Opportunities that predate them."),
 	("overrides/opportunity.py", "set_title", "Opportunity validate", "Makes the Opportunity Name the Opportunity's title."),
+	("overrides/opportunity.py", "set_won_date", "Opportunity validate", "Stamps Won Date the first time the status becomes Won."),
 	("overrides/opportunity.py", "validate_attachments", "Opportunity validate", "Refuses an Opportunity whose Attachments table holds no file."),
 	("overrides/opportunity.py", "calculate_contributions", "Opportunity validate", "Works out every breakdown row's Final Value from the Targeted Amount."),
 	("overrides/opportunity.py", "validate_activity_source", "Leads Activity validate", "Refuses an activity on an Opportunity that has no attachment saved."),
 	("overrides/opportunity.py", "get_dashboard_data", "Opportunity Connections tab", "Adds Leads Activity, the client (Lead/Customer/Prospect) and Project Tender to Connections."),
 	("overrides/customer.py", "apply_customer_customizations", "after_migrate", "Adds the Customer's Contacts table and hides core's contact list."),
+	("overrides/tender.py", "apply_tender_customizations", "after_migrate", "Adds Completion Date to Tender and its column to Project Tender's Direct Cost Details."),
+	("overrides/tender.py", "set_completion_date", "Tender validate", "Stamps Completion Date on the save that marks the Tender Complete."),
+	("overrides/tender.py", "push_completion_date_to_rows", "Tender on_update", "Writes that date onto every Direct Cost Details row naming the Tender."),
+	("overrides/tender.py", "set_submission_deadline", "Tender before_insert", "Fills Submission Deadline from the Expected Closing Date of the Opportunity behind the Project Tender."),
+	("overrides/tender.py", "backfill_completion_date", "after_migrate", "Fills the date for Tenders completed before the field existed."),
 	("overrides/project_tender.py", "apply_project_tender_customizations", "after_migrate", "Adds the Opportunity and Leads Activity links to Project Tender (if contracting is installed)."),
 	("overrides/project_tender.py", "create_project_tender_for_activity", "Tendering activity saved", "Creates the activity's Project Tender (once), sets the Opportunity to Tendering and tells the user."),
 	("overrides/project_tender.py", "get_opportunity_customer", "called by the above", "Finds or creates the Customer for the tender's Client."),
 	("overrides/project_tender.py", "convert_prospect_to_customer", "called by the above", "Reuses or creates the Customer for a Prospect."),
 	("overrides/project_tender.py", "validate_submitted_rows", "Project Tender validate", "Refuses Submitted until all three cost tables have rows."),
+	("overrides/project_tender.py", "set_status_dates", "Project Tender validate", "Stamps Submitted Date and Won Date the first time each status is reached."),
 	("overrides/project_tender.py", "on_update", "Project Tender saved", "Refreshes the Opportunity's tender table; Submitted → activity Done."),
 	("overrides/project_tender.py", "on_trash", "Project Tender deleted", "Removes the tender's row from its Opportunity first."),
 	("overrides/project_tender.py", "mark_activity_done", "tender Submitted", "Sets the creating activity to Done with a full save."),
-	("overrides/project_tender.py", "get_opportunity_tenders", "Won popup", "Lists the Opportunity's tenders for the popup to choose from."),
+	("overrides/project_tender.py", "get_opportunity_tenders", "Won popup", "Lists the Opportunity's Submitted tenders for the popup to choose from."),
 	("overrides/project_tender.py", "validate_approved_tender", "Opportunity validate", "Refuses an approved tender belonging to another Opportunity."),
 	("overrides/project_tender.py", "apply_approved_tender", "Opportunity saved as Won", "Sets the picked Project Tender to Won and comments on both timelines."),
 	("overrides/project_tender.py", "set_tender_won", "called by the above", "Saves the approved tender as Won, as the system."),
@@ -82,14 +92,16 @@ JS_REF = [
 	("public/js/opportunity.js", "custom_crm_updates.OpportunityController", "Opportunity form", "Subclass of ERPNext's Opportunity controller: adds our buttons."),
 	("public/js/opportunity.js", "validate handler", "Opportunity form", "Refuses an Opportunity with no attached file, with the same message as the server."),
 	("public/js/opportunity.js", "calculate_contribution", "breakdown row edited", "Fills a row's Final Value as the Targeted Amount, Type or Value is typed."),
+	("public/js/opportunity.js", "nothing_to_approve", "Won with nothing to pick", "Says whether the Opportunity has no tenders at all or none Submitted."),
 	("public/js/customer.js", "refresh handler", "Customer form", "Adds Create ▸ Opportunity, using ERPNext's own Customer → Opportunity mapper."),
+	("public/js/tender.js", "set_submission_deadline", "Tender form", "Fills an empty Submission Deadline from the Opportunity, in the form."),
 	("custom_crm_updates/doctype/leads_activity/leads_activity.js", "validate handler", "Leads Activity form", "Refuses a Registration activity with no attached file, with the same message as the server."),
 	("custom_crm_updates/doctype/leads_activity/leads_activity.js", "link_type handler", "Leads Activity form", "Clears Link when Link Type changes; limits Assigned To to users."),
 	("custom_crm_updates/doctype/leads_activity/leads_activity_list.js", "get_indicator", "Leads Activity list", "Colours each row's status pill."),
 ]
 SOURCES = [
 	"overrides/lead.py", "overrides/opportunity.py", "overrides/customer.py",
-	"overrides/project_tender.py", "overrides/contact.py",
+	"overrides/project_tender.py", "overrides/tender.py", "overrides/contact.py",
 	"mirror_table.py", "custom_crm_updates/doctype/leads_activity/leads_activity.py",
 ]
 
@@ -115,6 +127,10 @@ RECIPES = """
       <tr><td>Show another DocType in the Opportunity's Connections</td><td>Add it to <code>transactions</code> in <code>get_dashboard_data</code> (<code>overrides/opportunity.py</code>), with a <code>non_standard_fieldnames</code> entry if its link field isn't called <code>opportunity</code>.</td></tr>
       <tr><td>Require attachments on the Lead too</td><td>Add the Lead's table to <code>ACTIVITY_SOURCE_TABLES</code> in <code>overrides/opportunity.py</code> and to <code>ATTACHMENT_TABLES</code> in <code>public/js/leads_activity_section.js</code>.</td></tr>
       <tr><td>Show other columns in the Won popup</td><td><code>get_opportunity_tenders</code> (fields) and <code>tender_label</code> in <code>public/js/opportunity.js</code>.</td></tr>
+      <tr><td>Offer another status in the Won popup</td><td><code>APPROVABLE_STATUS</code> in <code>overrides/project_tender.py</code> — make it a tuple and the filter <code>["in", …]</code>.</td></tr>
+      <tr><td>Record the date of another Project Tender status (e.g. Lost)</td><td>Add <code>"Lost": "lost_date"</code> to <code>STATUS_DATE_FIELDS</code> in <code>overrides/project_tender.py</code> and a matching custom field to its <code>CUSTOM_FIELDS</code>; add it to <code>TENDER_ROW_FIELDS</code>, <code>tender_rows</code> and the child DocType to show it on the Opportunity too.</td></tr>
+      <tr><td>Stop a date being stamped automatically</td><td>Remove the hook from <code>doc_events</code> in <code>hooks.py</code>. The field and everything already recorded in it stay.</td></tr>
+      <tr><td>Fill another Tender field from the Opportunity</td><td><code>set_submission_deadline</code> in <code>overrides/tender.py</code> (and the matching lookup in <code>public/js/tender.js</code>, which must agree).</td></tr>
       <tr><td>Make Customer Group optional again</td><td>Remove the <code>CUSTOMER_FIELDS</code> line from <code>MANDATORY_DEPENDS_ON</code> and the <code>validate_customer_fields</code> hook; migrate.</td></tr>
       <tr><td>Check everything still works</td><td>On a test site: <code>bench --site &lt;test-site&gt; run-tests --app custom_crm_updates</code>.</td></tr>
     </tbody></table></div>

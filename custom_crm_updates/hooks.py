@@ -32,6 +32,8 @@ doctype_js = {
 	"Lead": ["public/js/leads_activity_section.js", "public/js/lead.js"],
 	"Opportunity": ["public/js/leads_activity_section.js", "public/js/opportunity.js"],
 	"Customer": ["public/js/leads_activity_section.js", "public/js/customer.js"],
+	# contracting app; the file is simply never loaded if it isn't installed
+	"Tender": "public/js/tender.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -73,11 +75,14 @@ after_migrate = [
 	"custom_crm_updates.overrides.opportunity.apply_opportunity_customizations",
 	"custom_crm_updates.overrides.customer.apply_customer_customizations",
 	"custom_crm_updates.overrides.project_tender.apply_project_tender_customizations",
+	"custom_crm_updates.overrides.tender.apply_tender_customizations",
 	# after the three above: they need the custom fields
 	"custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity.backfill_activity_tables",
 	"custom_crm_updates.overrides.project_tender.backfill_opportunity_tenders",
 	"custom_crm_updates.overrides.contact.backfill_contact_tables",
 	"custom_crm_updates.overrides.opportunity.backfill_party_links",
+	"custom_crm_updates.overrides.lead.backfill_date_of_convert",
+	"custom_crm_updates.overrides.tender.backfill_completion_date",
 ]
 
 # Uninstallation
@@ -137,6 +142,7 @@ doc_events = {
 		"before_validate": "custom_crm_updates.overrides.lead.clear_person_fields",
 		"validate": [
 			"custom_crm_updates.overrides.lead.validate_customer_fields",
+			"custom_crm_updates.overrides.lead.set_date_of_convert",
 			"custom_crm_updates.overrides.contact.refresh_own_table",
 		],
 		"after_insert": "custom_crm_updates.overrides.contact.refresh_after_insert",
@@ -152,6 +158,7 @@ doc_events = {
 			"custom_crm_updates.overrides.opportunity.set_title",
 			"custom_crm_updates.overrides.opportunity.validate_attachments",
 			"custom_crm_updates.overrides.opportunity.calculate_contributions",
+			"custom_crm_updates.overrides.opportunity.set_won_date",
 		],
 		"on_update": [
 			"custom_crm_updates.overrides.project_tender.apply_approved_tender",
@@ -161,8 +168,13 @@ doc_events = {
 	},
 	"Customer": {
 		"validate": "custom_crm_updates.overrides.contact.refresh_own_table",
-		# the Lead it was made from rolls its contacts up
-		"on_update": "custom_crm_updates.overrides.contact.refresh_party_lead",
+		"on_update": [
+			# the Lead it was made from rolls its contacts up
+			"custom_crm_updates.overrides.contact.refresh_party_lead",
+			# ERPNext marks that Lead "Converted" from here, straight in the
+			# database, where no Lead hook can see it
+			"custom_crm_updates.overrides.lead.set_date_of_convert_from_customer",
+		],
 		"on_trash": "custom_crm_updates.overrides.contact.refresh_party_lead",
 	},
 	"Contact": {
@@ -170,8 +182,16 @@ doc_events = {
 		"on_trash": "custom_crm_updates.overrides.contact.on_contact_trash",
 	},
 	# contracting app; never fires if it isn't installed
+	"Tender": {
+		"before_insert": "custom_crm_updates.overrides.tender.set_submission_deadline",
+		"validate": "custom_crm_updates.overrides.tender.set_completion_date",
+		"on_update": "custom_crm_updates.overrides.tender.push_completion_date_to_rows",
+	},
 	"Project Tender": {
-		"validate": "custom_crm_updates.overrides.project_tender.validate_submitted_rows",
+		"validate": [
+			"custom_crm_updates.overrides.project_tender.validate_submitted_rows",
+			"custom_crm_updates.overrides.project_tender.set_status_dates",
+		],
 		"on_update": "custom_crm_updates.overrides.project_tender.on_update",
 		"on_trash": "custom_crm_updates.overrides.project_tender.on_trash",
 	},

@@ -23,7 +23,8 @@
   picked when the Opportunity is Won
   (custom_crm_updates/overrides/project_tender.py).
 - Status options "Tendering" and "Won": "Tendering" is set by that Project
-  Tender automation, "Won" by the user.
+  Tender automation, "Won" by the user. The day it becomes "Won" is recorded
+  in "Won Date" (set_won_date), beside the approved tender in that tab.
 - Contacts tab: the contact list is shown as a read-only Contacts table
   (custom_crm_updates/overrides/contact.py) instead of core's contact_html.
 - Connections entry for Leads Activity.
@@ -36,7 +37,7 @@ import json
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import flt, nowdate
 
 from custom_crm_updates.overrides.contact import contact_table_fields
 from custom_crm_updates.overrides.lead import move_section
@@ -58,6 +59,9 @@ BREAKDOWN_SECTION = "custom_opportunity_breakdown_section"
 CONTRIBUTIONS_FIELD = "custom_opportunity_contributions"
 ATTACHMENTS_SECTION = "custom_opportunity_attachments_section"
 ATTACHMENTS_FIELD = "custom_opportunity_attachments"
+# Deliberately unprefixed: the field name was specified as won_date.
+WON_DATE = "won_date"
+WON = "Won"
 
 # The party is a Dynamic Link (opportunity_from + party_name), which a
 # Connections card cannot follow: an internal dashboard link reads one plain
@@ -190,6 +194,17 @@ CUSTOM_FIELDS = {
 			"no_copy": 1,
 			"description": "The Project Tender that was approved. Chosen when this Opportunity is set to Won, which also sets that tender to Won.",
 		},
+		# In the Project Tender tab, below the tender that was approved: the
+		# two are set by the same move to Won.
+		{
+			"fieldname": WON_DATE,
+			"fieldtype": "Date",
+			"label": "Won Date",
+			"insert_after": APPROVED_TENDER_FIELD,
+			"read_only": 1,
+			"no_copy": 1,
+			"description": "The day this Opportunity was won. Set once, automatically.",
+		},
 		# last field of the Contacts tab
 		*contact_table_fields(insert_after="contact_display"),
 	]
@@ -272,6 +287,21 @@ def backfill_party_links():
 			continue
 
 		frappe.db.set_value("Opportunity", opportunity.name, values, update_modified=False)
+
+
+def set_won_date(doc, method=None):
+	"""validate: the day the Opportunity's status became "Won".
+
+	Written only on the save that actually changes the status, and only while
+	the field is still empty, so an Opportunity reopened and won again keeps
+	the date of the first win. validate rather than on_update, so the date is
+	part of the same write as the status.
+	"""
+	if doc.get(WON_DATE) or doc.status != WON:
+		return
+
+	if doc.has_value_changed("status"):
+		doc.set(WON_DATE, nowdate())
 
 
 def set_title(doc, method=None):

@@ -1,9 +1,11 @@
 // Opportunity form customizations (fields: custom_crm_updates/overrides/opportunity.py):
 // - activity buttons for the read-only Opportunity Activities table
 //   (leads_activity_section.js);
-// - Status set to "Won": a popup lists this Opportunity's Project Tenders and
-//   asks which one was approved. Saving then sets that tender to "Won"
-//   (custom_crm_updates/overrides/project_tender.py, apply_approved_tender);
+// - Status set to "Won": a popup lists this Opportunity's Submitted Project
+//   Tenders and asks which one was approved. Saving then sets that tender to
+//   "Won" (custom_crm_updates/overrides/project_tender.py,
+//   apply_approved_tender). Tenders in any other status are not offered: the
+//   list comes from get_opportunity_tenders, which filters on Submitted;
 // - Contact Person lists the Opportunity's own contacts, not its party's
 //   (custom_crm_updates/overrides/contact.py).
 // - Opportunity Breakdown: each row's Final Value follows the Targeted Amount
@@ -17,6 +19,10 @@ frappe.provide("custom_crm_updates");
 
 const WON = "Won";
 const APPROVED_TENDER_FIELD = "custom_approved_project_tender";
+const TENDER_TABLE = "custom_project_tenders";
+// What get_opportunity_tenders offers; named here only for the message shown
+// when nothing qualifies.
+const APPROVABLE_STATUS = "Submitted";
 const TARGETED_AMOUNT = "custom_targeted_amount";
 const CONTRIBUTIONS_FIELD = "custom_opportunity_contributions";
 const ATTACHMENTS_FIELD = "custom_opportunity_attachments";
@@ -30,7 +36,7 @@ custom_crm_updates.OpportunityController = class OpportunityController extends e
 		custom_crm_updates.setup_activity_make_method(this.frm);
 		custom_crm_updates.show_when_empty(this.frm, [
 			"custom_leads_activities",
-			"custom_project_tenders",
+			TENDER_TABLE,
 			"custom_contacts",
 		]);
 	}
@@ -131,14 +137,11 @@ function ask_which_tender_was_approved(frm) {
 		callback(r) {
 			const tenders = r.message || [];
 			if (!tenders.length) {
-				// Won without tendering (a direct award, an Opportunity that
-				// never went out to tender): nothing to approve, and the
-				// status stands.
-				frappe.msgprint({
-					title: __("لا يوجد Project Tender"),
-					message: __("لا يوجد أي Project Tender مُنشأ على هذا الـ Opportunity لاعتماده."),
-					indicator: "orange",
-				});
+				// Nothing to approve, and the status stands. Two different
+				// reasons, so the message says which one: the Opportunity's
+				// own table (same tab as this popup) is what tells them
+				// apart without a second call.
+				nothing_to_approve(frm);
 				remember_status(frm);
 				return;
 			}
@@ -146,6 +149,30 @@ function ask_which_tender_was_approved(frm) {
 		},
 	});
 }
+
+function nothing_to_approve(frm) {
+	// Won without tendering: a direct award, or an Opportunity that never
+	// went out to tender.
+	if (!(frm.doc[TENDER_TABLE] || []).length) {
+		frappe.msgprint({
+			title: __("لا يوجد Project Tender"),
+			message: __("لا يوجد أي Project Tender مُنشأ على هذا الـ Opportunity لاعتماده."),
+			indicator: "orange",
+		});
+		return;
+	}
+
+	// Tenders there are, but none of them was ever sent to the client.
+	frappe.msgprint({
+		title: __("لا يوجد Project Tender بالحالة {0}", [APPROVABLE_STATUS]),
+		message: __(
+			"لا يمكن اعتماد Project Tender لم يُرسل إلى العميل. حوّل التندر المعتمد إلى الحالة {0} أولاً، ثم أعد تحويل الـ Opportunity إلى {1}.",
+			[APPROVABLE_STATUS, WON]
+		),
+		indicator: "orange",
+	});
+}
+
 
 function pick_approved_tender(frm, tenders) {
 	let picked = null;

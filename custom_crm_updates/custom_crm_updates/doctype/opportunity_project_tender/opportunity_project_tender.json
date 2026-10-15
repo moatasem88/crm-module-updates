@@ -10,6 +10,8 @@
   "client",
   "status",
   "total_sell_price",
+  "submitted_date",
+  "won_date",
   "leads_activity",
   "creation_date"
  ],
@@ -32,7 +34,7 @@
    "read_only": 1
   },
   {
-   "columns": 2,
+   "columns": 1,
    "fieldname": "client",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -41,7 +43,7 @@
    "read_only": 1
   },
   {
-   "columns": 2,
+   "columns": 1,
    "fieldname": "status",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -54,6 +56,22 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Total Sell Price",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "submitted_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Submitted Date",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "won_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Won Date",
    "read_only": 1
   },
   {
@@ -72,7 +90,7 @@
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-10-07 11:10:00.000000",
+ "modified": "2026-10-15 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Custom CRM Updates",
  "name": "Opportunity Project Tender",

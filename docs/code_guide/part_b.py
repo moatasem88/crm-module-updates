@@ -28,7 +28,7 @@ def steps_b():
 		"Saving a Tendering activity on an Opportunity creates one Project Tender named after it, and moves the Opportunity to Tendering.",
 		["leads_activity.py → on_update", "overrides/project_tender.py"],
 		why("Project Tender belongs to the <b>contracting</b> app, which we do not modify. Two read-only custom fields added from our app link each tender back to its Opportunity and to the activity that created it. That link is also how \"one tender per activity\" is guaranteed: before creating, we check whether a tender already points at this activity.")
-		+ py_lines(LA, 64, 67, "leads_activity.py · inside LeadsActivity.on_update · lines 64–67")
+		+ py_lines(LA, 91, 95, "leads_activity.py · inside LeadsActivity.on_update · lines 91–95", expect="create_project_tender_for_activity")
 		+ py(PT, "CUSTOM_FIELDS", "apply_project_tender_customizations", "create_project_tender_for_activity")
 		+ explain([
 			"The import sits inside the function (a <em>local import</em>) so the two modules can call each other without a circular import at load time.",
@@ -78,7 +78,7 @@ def steps_b():
 		"When a Registration activity on a Lead is Done, the Lead is converted to a Customer using its own Customer Group and Territory.",
 		["leads_activity.py → on_update", "overrides/lead.py → convert_lead_to_customer, insert_customer"],
 		why("We reuse ERPNext's own Lead → Customer mapping (<code>_make_customer</code>), the same code behind the Lead's Create ▸ Customer button. It copies the Lead's details and, when the Customer is saved, links the Lead's contacts and addresses to it and marks the Lead Converted. We only fill in what the mapping leaves out.")
-		+ py_lines(LA, 86, 91, "leads_activity.py · inside LeadsActivity.on_update · lines 86–91")
+		+ py_lines(LA, 114, 119, "leads_activity.py · inside LeadsActivity.on_update · lines 114–119", expect="convert_lead_to_customer")
 		+ py(LD, "convert_lead_to_customer", "insert_customer")
 		+ explain([
 			"The trigger fires when a Registration activity <em>becomes</em> Done, or a Done activity is changed to Registration.",
@@ -135,7 +135,7 @@ def steps_b():
 		["overrides/lead.py → CUSTOMER_FIELDS, MANDATORY_DEPENDS_ON, validate_customer_fields"],
 		why("The obvious switch, <code>reqd</code>, is enforced on <em>every</em> insert. ERPNext also creates Leads by itself (website contact form, an Opportunity made from an email address, appointments) with nobody to ask, and those would start failing. So the form is made mandatory with <code>mandatory_depends_on: \"eval:1\"</code> (always true), and a server check covers people saving by API or import while letting ERPNext's own inserts through.")
 		+ py(LD, "CUSTOMER_GROUP", "CUSTOMER_FIELDS", "MANDATORY_DEPENDS_ON", "validate_customer_fields")
-		+ py_lines(LD, 58, 66, "overrides/lead.py · the Customer Group custom field · lines 58–66")
+		+ py_lines(LD, 65, 73, "overrides/lead.py · the Customer Group custom field · lines 65–73", expect="CUSTOMER_GROUP")
 		+ explain([
 			"In Frappe v14, <code>mandatory_depends_on</code> is checked by the form only (red asterisk, \"Missing Fields\" dialog), never by the server.",
 			"<code>validate_customer_fields</code> runs on the server for every Lead save. ERPNext's automatic inserts pass <code>ignore_permissions</code> or <code>ignore_mandatory</code>; those are skipped. Everyone else gets the same error the form shows.",
@@ -271,8 +271,88 @@ def steps_b():
 			"Nothing about the party itself changed: the same Dynamic Link still drives the form, the Contacts table and the Opportunity's own rules.",
 		])))
 
-	s.append(step(25, "s-tests", "Automated tests",
-		"131 tests check every rule above against a real ERPNext database, then undo everything they created.",
+	s.append(step(25, "s-convert-date", "Date of Convert on the Lead",
+		"A read-only Date beside Status, stamped with the day the Lead's status first became Converted.",
+		["overrides/lead.py → set_date_of_convert, set_date_of_convert_from_customer", "hooks.py → Lead validate, Customer on_update"],
+		why("A Lead reaches <b>Converted</b> two ways, and only one of them runs a Lead hook. Someone can set the status on the form, which <b>validate</b> sees. But the usual route is the Customer: ERPNext's <code>Customer.update_lead_status</code> marks the Lead with <code>frappe.db.set_value</code>, a direct write that loads no Lead document at all — so no Lead <code>validate</code>, no Lead <code>on_update</code>, nothing. A hook on the Lead alone would miss every conversion made through a Registration activity. The date is therefore stamped from both ends, and the second one hangs off the <b>Customer</b> instead.")
+		+ py(LD, "CONVERT_DATE", "set_date_of_convert", "set_date_of_convert_from_customer")
+		+ explain([
+			"Two guards together: <code>has_value_changed(\"status\")</code> so it is only the save that <em>moves</em> the status, and \"the field is still empty\" so the first conversion is the one that is kept. A Lead that goes Converted → Open → Converted keeps the original date, and an ordinary re-save never moves it.",
+			"<code>set_date_of_convert_from_customer</code> re-reads the Lead's status from the database rather than trusting the Customer: core sets it inside the same save, and reading it back is what confirms the conversion actually happened.",
+			"It writes with <code>db_set</code> / <code>frappe.db.set_value</code> and <code>update_modified=False</code>, like the qualification stamps (step 8): whoever creates the Customer may have no write access to the Lead, and the value follows a status change that was itself written this way.",
+			"The field is <code>read_only</code> and <code>no_copy</code>: it is a record of what happened, not something to type, and duplicating a Lead must not carry another Lead's conversion date over.",
+		])
+		+ py(LD, "backfill_date_of_convert")
+		+ explain([
+			"Leads converted before the field existed: the Customer raised from a Lead is what converted it, so <em>that Customer's</em> creation date is the conversion date — a real date rather than the day of the migrate.",
+			"A Lead marked Converted by hand with no Customer behind it is left blank: there is nothing on record to say when it happened, and inventing a date would be worse than an empty field.",
+		])))
+
+	s.append(step(26, "s-tender-complete", "Completion Date on the Tender, and on the Project Tender's row",
+		"A Tender marked Complete is stamped with the day it happened, and that date appears in the Direct Cost Details table that lists it.",
+		["overrides/tender.py", "hooks.py → Tender validate, on_update"],
+		why("Tender belongs to the <b>contracting</b> app, so this is the same approach as Project Tender (step 10): custom fields and hooks from our app, nothing of theirs edited. The timing matters more than usual here. Contracting locks a Tender outright the moment it is Complete — <code>validate_not_complete_locked</code> refuses <em>any</em> later edit — so the date has to be written on the very save that sets the status, not afterwards. That is why this is a <b>validate</b> hook: Frappe runs a DocType's own controller method first and the <code>doc_events</code> hooks after it, so by the time ours runs the lock check has already passed on the old status.")
+		+ py("overrides/tender.py", "CUSTOM_FIELDS", "apply_tender_customizations", "set_completion_date")
+		+ explain([
+			"The second entry in <code>CUSTOM_FIELDS</code> is on a <em>child</em> DocType, <code>Project Tender Direct Cost Detail</code> — the table a Project Tender's Tenders are added to. <code>fetch_from: \"tender.completion_date\"</code> makes it follow the Tender named on the row, exactly as the existing <code>tender_status</code> column does.",
+			"Frappe refreshes a <code>fetch_from</code> column on every save of the <em>parent</em>, and contracting's cross-sync saves every linked Project Tender whenever a Tender is saved — so the column keeps itself current without anything else being asked of it.",
+			"Same two guards as the Lead's date: only on the save that changes the status, only while the field is empty.",
+			"<code>apply_tender_customizations</code> returns early when the contracting app is absent, so the app still installs without it.",
+		])
+		+ py("overrides/tender.py", "push_completion_date_to_rows", "backfill_completion_date")
+		+ explain([
+			"<code>push_completion_date_to_rows</code> writes the same value straight onto the rows, the way contracting's own <code>cross_sync</code> writes <code>tender_total</code>: belt and braces for the case where that parent save is skipped. No document save and no modified bump — the value is a copy of the Tender's own field, not a change anyone made to the Project Tender.",
+			"The backfill can use <code>modified</code> for Tenders that were Complete before the field existed, precisely <em>because</em> Complete locks them: nothing has been able to save one since, so its last-modified date is the day it was completed.",
+		])))
+
+	s.append(step(27, "s-stage-dates", "Submitted Date and Won Date, on the tender and on the Opportunity",
+		"Each status that matters stamps the day it was reached: Submitted and Won on the Project Tender, Won on the Opportunity — and the two tender dates show as columns in the Opportunity's own Project Tenders table.",
+		["overrides/project_tender.py → STATUS_DATE_FIELDS, set_status_dates", "overrides/opportunity.py → set_won_date", "Opportunity Project Tender (child DocType)"],
+		why("Three dates, one rule, so it is written once: a dict maps each status to the field that records it, and the hook looks the current status up in it. Adding a date for <b>Lost</b> later is one line in that dict plus the custom field. All three are stamped in <b>validate</b> rather than <code>on_update</code>, so the date is part of the same database write as the status it describes — there is no instant at which a tender is Submitted with no Submitted Date.")
+		+ py(PT, "STATUS_DATE_FIELDS", "set_status_dates")
+		+ py(OP, "WON_DATE", "set_won_date")
+		+ explain([
+			"<code>STATUS_DATE_FIELDS.get(doc.status)</code> returns <code>None</code> for every status without a date of its own (Draft, Under Review, Lost, Cancelled, Superseded), so those save exactly as before.",
+			"The two dates are independent: a Project Tender taken straight to Won without passing through Submitted gets a Won Date and no Submitted Date, which is the truth about what happened to it.",
+			"The Opportunity's Won Date sits in the Project Tender tab directly below <b>Approved Project Tender</b>: the same move to Won sets both, so they read together.",
+			"<code>no_copy</code> on all three, for the same reason as the Lead's: duplicating a record must not carry its predecessor's history across.",
+		])
+		+ py(PT, "TENDER_ROW_FIELDS")
+		+ explain([
+			"The two dates are added to the mirror table built in step 11 — to the child DocType's fields, to the query in <code>tender_rows</code>, and to <code>TENDER_ROW_FIELDS</code>, the tuple <code>rows_differ</code> compares. Miss that last one and the sync would never notice a date had changed.",
+			"That is the whole of the Opportunity-side change: <code>sync_opportunity_tenders</code> already runs on every Project Tender save, so the columns fill themselves.",
+			"The grid's column widths were rebalanced to total exactly 10, Frappe's budget for a child table: adding columns without that would silently push the ones on the right out of view.",
+		])))
+
+	s.append(step(28, "s-submission-deadline", "A new Tender inherits the Opportunity's Expected Closing Date",
+		"Raise a Tender under a Project Tender that came from an Opportunity and its Submission Deadline is already filled in — and still editable.",
+		["overrides/tender.py → set_submission_deadline", "public/js/tender.js", "hooks.py → Tender before_insert, doctype_js"],
+		why("The chain is <code>Tender.project_tender</code> → <code>Project Tender.custom_opportunity</code> → <code>Opportunity.expected_closing</code>, so the deadline is two links away and nobody should have to go and look it up. It is a <b>before_insert</b> hook and not a <code>default</code> or a <code>fetch_from</code>: a default cannot follow two links, and a <code>fetch_from</code> would keep overwriting the field on every later save, which is exactly what must not happen to a date the user is allowed to change. Writing it once, at creation, into an empty field leaves it an ordinary editable field from then on.")
+		+ py("overrides/tender.py", "set_submission_deadline")
+		+ js("public/js/tender.js", 14, 32)
+		+ explain([
+			"Both ways in are covered, because both set <code>project_tender</code> before the insert: contracting's <b>Create ▸ Tender</b> on the Project Tender form, and a Tender raised on its own form with the Project Tender picked by hand.",
+			"Three early returns, in order: a deadline already there wins, no Project Tender means nothing to follow, and a Project Tender with no Opportunity behind it (one created directly, not from a Tendering activity) leaves the field empty.",
+			"The client script does the same thing in the form — on the <code>project_tender</code> change and on <code>onload</code> of a new Tender, which is the case <b>Create ▸ Tender</b> produces, where the link is already set and no change event ever fires. It is there so the user sees the date before saving, not after.",
+			"It re-checks that the field is still empty when the lookup comes back: the user may have typed a deadline while the two requests were in flight.",
+			"The server hook is the one that actually holds — for the REST API, a Data Import and the bench console, where no form script runs. The script is a convenience on top of it, never the rule itself.",
+		])))
+
+	s.append(step(29, "s-submitted-only", "The approved-tender pop-up offers Submitted tenders only",
+		"Closing an Opportunity as Won lists only the Project Tenders that were actually sent to the client.",
+		["overrides/project_tender.py → APPROVABLE_STATUS, get_opportunity_tenders", "public/js/opportunity.js → nothing_to_approve"],
+		why("A price the client never saw cannot be the price the client approved. Draft and Under Review tenders never left the office; Lost and Cancelled ones were not approved; a Won one already is the approved tender. That leaves <b>Submitted</b>, and the pop-up from step 18 now offers nothing else. The filter is added to the server method the pop-up calls rather than to the array it receives, so the rule lives next to the status it is about and there is one place to change it.")
+		+ py(PT, "APPROVABLE_STATUS", "get_opportunity_tenders")
+		+ js("public/js/opportunity.js", 142, 162)
+		+ explain([
+			"One filter on the query. Everything else about the pop-up — the dialog, the label, cancelling putting the Status back — is untouched.",
+			"The empty case now has two different causes, so it gives two different messages: an Opportunity with no tenders at all (a direct award) and one whose tenders are all still Draft. Telling the user which it is turns a dead end into an instruction.",
+			"It tells them apart from the Opportunity's own Project Tenders table, which is already on the form in the same tab — no second call to the server to answer a question the page can already answer.",
+			"The Status still goes back to what it was in both cases, exactly as before: a Won with nothing approved behind it is never left on screen.",
+		])))
+
+	s.append(step(30, "s-tests", "Automated tests",
+		"154 tests check every rule above against a real ERPNext database, then undo everything they created.",
 		["custom_crm_updates/doctype/leads_activity/test_leads_activity.py", "tests/test_crm_automation.py", "tests/test_opportunity.py"],
 		why("Each test class extends Frappe's <code>FrappeTestCase</code>, which rolls the database back after the class finishes. Tests create their own Leads, Opportunities and activities, so they never depend on (or change) real data. This site has no default Customer Group, so the tests stand one in with a <b>mock</b> instead of writing a real default.")
 		+ py("custom_crm_updates/doctype/leads_activity/test_leads_activity.py", "make_lead", "customer_defaults")
@@ -283,6 +363,8 @@ def steps_b():
 			"The first sample test follows the whole Tendering flow: two Tendering activities, Submit one tender, then check that only <em>its</em> activity became Done and that the Opportunity was <em>not</em> moved on.",
 			"The second closes the Opportunity as Won with one tender picked, and checks that only that tender became Won, that both the saved form and the database show it, and that the other tender is untouched.",
 			"<code>tests/test_opportunity.py</code> covers steps 20–24: the title following the Opportunity Name, the attachment an Opportunity cannot be saved without (and the Activity that cannot be created without it), the Final Value arithmetic, and the field order the moved Opportunity Value section produces.",
+			"Steps 25–29 add four classes of their own: <code>TestLeadConvertDate</code> (both routes to Converted, and that the first date is the one kept), <code>TestProjectTenderStatusDates</code>, <code>TestOpportunityWonDate</code> and <code>TestTenderDates</code>. The last one skips itself when the contracting app is not installed, so the suite still runs on a site without it.",
+			"Each date test asserts the same three things: that it is stamped on the transition, that a status with no date of its own stamps nothing, and that a second visit to the same status does not move it — the rule being tested is \"once, on the change\", not merely \"not empty\".",
 			"Run them on a dedicated test site: <code>bench --site &lt;test-site&gt; run-tests --app custom_crm_updates</code>. On a live site ERPNext saves its sample test records permanently.",
 		])))
 	return "".join(s)

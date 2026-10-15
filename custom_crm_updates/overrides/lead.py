@@ -10,6 +10,10 @@
   Lead is converted into takes them from the Lead.
 - convert_lead_to_customer: used by Leads Activity (Registration -> Done) and
   by Project Tender creation.
+- "Date of Convert": the day the Lead's status first became "Converted",
+  recorded by set_date_of_convert (its own save) and
+  set_date_of_convert_from_customer (the Customer ERPNext raises from it,
+  which flips the status straight in the database).
 - "Leads Activities" section at the top of the Activities tab: a read-only
   table kept in sync by Leads Activity (see sync_activity_table), plus a
   Connections entry for Leads Activity.
@@ -22,7 +26,7 @@ import json
 
 import frappe
 from frappe import _
-from frappe.utils import get_link_to_form
+from frappe.utils import get_link_to_form, nowdate
 
 from custom_crm_updates.overrides.contact import CONTACT_SECTION, contact_table_fields
 from custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity import (
@@ -31,6 +35,9 @@ from custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity
 )
 
 IS_COMPANY = "custom_is_company"
+# Deliberately unprefixed: the field name was specified as date_of_convert.
+CONVERT_DATE = "date_of_convert"
+CONVERTED = "Converted"
 ADDRESS_TAB = "custom_address_contacts_tab"
 CUSTOMER_GROUP = "custom_customer_group"
 # What convert_lead_to_customer needs from the Lead.
@@ -63,6 +70,16 @@ CUSTOM_FIELDS = {
 			"options": "Customer Group",
 			"insert_after": "territory",
 			"in_standard_filter": 1,
+		},
+		{
+			"fieldname": CONVERT_DATE,
+			"fieldtype": "Date",
+			"label": "Date of Convert",
+			"insert_after": "status",
+			"read_only": 1,
+			"no_copy": 1,
+			"allow_on_submit": 0,
+			"description": "The day this Lead was converted. Set once, automatically.",
 		},
 		*activity_table_fields("Leads Activities"),
 		# moved to the end of the Address & Contacts tab by apply_field_order
@@ -266,3 +283,74 @@ def clear_person_fields(doc, method=None):
 	# set_lead_name only fills lead_name when it's empty, so a lead that was
 	# a person before being flagged would otherwise keep the person's name.
 	doc.lead_name = doc.company_name
+
+
+def set_date_of_convert(doc, method=None):
+	"""validate: the day the Lead's status became "Converted".
+
+	Written only on the save that actually changes the status, and only while
+	the field is still empty: a Lead that goes Converted -> Open -> Converted
+	keeps the date of the first conversion, and an ordinary re-save of a
+	Converted Lead never moves it.
+
+	This covers the Lead's own form, the REST API and a Data Import. The other
+	way a Lead becomes Converted - ERPNext writing the status straight to the
+	database when a Customer is raised from it - runs no Lead hook at all and
+	is caught by set_date_of_convert_from_customer below.
+	"""
+	if doc.get(CONVERT_DATE) or doc.status != CONVERTED:
+		return
+
+	if doc.has_value_changed("status"):
+		doc.set(CONVERT_DATE, nowdate())
+
+
+def set_date_of_convert_from_customer(doc, method=None):
+	"""doc_events: Customer on_update, after core's own update_lead_status,
+	which marks the Lead "Converted" with frappe.db.set_value - no Lead
+	document is loaded, so no Lead hook (not validate, not on_update) ever
+	sees that change.
+
+	Written the same way, straight to the database with no modified bump: the
+	user creating the Customer may have no write access to the Lead, and the
+	date is derived from a status change that was itself made this way.
+	"""
+	if not doc.get("lead_name"):
+		return
+
+	lead = frappe.db.get_value("Lead", doc.lead_name, ["status", CONVERT_DATE], as_dict=True)
+	if not lead or lead.status != CONVERTED or lead.get(CONVERT_DATE):
+		return
+
+	frappe.db.set_value("Lead", doc.lead_name, CONVERT_DATE, nowdate(), update_modified=False)
+
+
+def backfill_date_of_convert():
+	"""after_migrate: Leads that were already Converted before the field
+	existed. The Customer raised from a Lead is what converts it, so that
+	Customer's creation date is the conversion date - a real date rather than
+	today's. A Lead marked Converted by hand, with no Customer behind it, is
+	left blank: there is nothing on record to say when it happened.
+	"""
+	if CONVERT_DATE not in frappe.db.get_table_columns("Lead"):
+		return
+
+	dates = {}
+	for customer in frappe.get_all(
+		"Customer",
+		filters={"lead_name": ["is", "set"]},
+		fields=["lead_name", "creation"],
+		order_by="creation asc",
+	):
+		# the first Customer raised from the Lead is the one that converted it
+		dates.setdefault(customer.lead_name, customer.creation.date())
+
+	if not dates:
+		return
+
+	for lead in frappe.get_all(
+		"Lead",
+		filters={"name": ["in", list(dates)], "status": CONVERTED, CONVERT_DATE: ["is", "not set"]},
+		pluck="name",
+	):
+		frappe.db.set_value("Lead", lead, CONVERT_DATE, dates[lead], update_modified=False)

@@ -12,8 +12,13 @@
   user's call, and it is made the other way round — setting the Opportunity to
   "Won" asks which of its tenders was approved (the popup in
   public/js/opportunity.js) and that one becomes "Won" (apply_approved_tender).
+  Only Submitted tenders are offered there (APPROVABLE_STATUS): a price that
+  was never sent to the client cannot be the one the client approved.
 - A Project Tender can only be "Submitted" once its three cost tables all have
   rows (validate_submitted_rows).
+- "Submitted Date" and "Won Date": the days the Project Tender's status became
+  "Submitted" and "Won" (set_status_dates). Both are shown on the
+  Opportunity's own Project Tenders table, in its Project Tender tab.
 
 The link back is two read-only Custom Fields on Project Tender,
 custom_opportunity and custom_leads_activity, created by
@@ -26,21 +31,32 @@ import frappe
 from frappe import _
 from frappe.utils import get_link_to_form
 
+from frappe.utils import nowdate
+
 from custom_crm_updates.mirror_table import rows_differ, set_mirror_rows
 
 OPPORTUNITY_FIELD = "custom_opportunity"
 ACTIVITY_FIELD = "custom_leads_activity"
 TENDER_TABLE = "custom_project_tenders"
 APPROVED_TENDER_FIELD = "custom_approved_project_tender"
+# Deliberately unprefixed: the field names were specified as submitted_date
+# and won_date. Each holds the day its status was first reached.
+STATUS_DATE_FIELDS = {"Submitted": "submitted_date", "Won": "won_date"}
 TENDER_ROW_FIELDS = (
 	"project_tender",
 	"project_name",
 	"client",
 	"status",
 	"total_sell_price",
+	"submitted_date",
+	"won_date",
 	"leads_activity",
 	"creation_date",
 )
+# Only a Submitted Project Tender can be the approved one behind a Won
+# Opportunity: the client can only have approved a price that was sent to
+# them. This is what the popup offers (get_opportunity_tenders).
+APPROVABLE_STATUS = "Submitted"
 # A Project Tender is only ready to be submitted once it is fully costed.
 SUBMITTED_REQUIRED_TABLES = (
 	"direct_cost_details",
@@ -69,6 +85,25 @@ CUSTOM_FIELDS = {
 			"insert_after": OPPORTUNITY_FIELD,
 			"read_only": 1,
 			"no_copy": 1,
+		},
+		# Beside Status, in the order the two are reached.
+		{
+			"fieldname": STATUS_DATE_FIELDS["Submitted"],
+			"fieldtype": "Date",
+			"label": "Submitted Date",
+			"insert_after": "status",
+			"read_only": 1,
+			"no_copy": 1,
+			"description": "The day this Project Tender was submitted. Set once, automatically.",
+		},
+		{
+			"fieldname": STATUS_DATE_FIELDS["Won"],
+			"fieldtype": "Date",
+			"label": "Won Date",
+			"insert_after": STATUS_DATE_FIELDS["Submitted"],
+			"read_only": 1,
+			"no_copy": 1,
+			"description": "The day this Project Tender was won. Set once, automatically.",
 		},
 	],
 }
@@ -181,6 +216,27 @@ def validate_submitted_rows(doc, method=None):
 		)
 
 
+def set_status_dates(doc, method=None):
+	"""doc_events: Project Tender validate. Records the day the status became
+	"Submitted" and the day it became "Won", each in its own field.
+
+	Written only on the save that actually changes the status, and only while
+	the field is still empty, so a tender that is re-submitted keeps the date
+	of the first submission. The two are independent: a Project Tender that
+	goes straight to Won without passing through Submitted gets a Won Date and
+	no Submitted Date.
+
+	validate rather than on_update, so the date is part of the same write as
+	the status itself.
+	"""
+	if not doc.has_value_changed("status"):
+		return
+
+	fieldname = STATUS_DATE_FIELDS.get(doc.status)
+	if fieldname and not doc.get(fieldname):
+		doc.set(fieldname, nowdate())
+
+
 def on_update(doc, method=None):
 	"""doc_events: Project Tender on_update (after contracting's own)."""
 	before = doc.get_doc_before_save()
@@ -221,6 +277,11 @@ def get_opportunity_tenders(opportunity):
 	"""The list behind the "which tender was approved?" popup
 	(public/js/opportunity.js), oldest first like the Opportunity's own table.
 
+	Only the Submitted ones: a Draft or Under Review tender is a price that
+	never left this office, a Lost or Cancelled one was not approved, and a
+	Won one already is the approved tender. Filtered here rather than in the
+	popup so the rule has one home, next to the status it is about.
+
 	Read as the system, exactly like that table: Project Tender is a
 	contracting doctype, and the Sales User closing the Opportunity has no
 	role on it."""
@@ -228,7 +289,7 @@ def get_opportunity_tenders(opportunity):
 
 	return frappe.get_all(
 		"Project Tender",
-		filters={OPPORTUNITY_FIELD: opportunity},
+		filters={OPPORTUNITY_FIELD: opportunity, "status": APPROVABLE_STATUS},
 		fields=["name", "project_name", "client", "status", "total_sell_price"],
 		order_by="creation asc",
 	)
@@ -317,6 +378,7 @@ def tender_rows(opportunity, exclude=None):
 			"client",
 			"status",
 			"total_sell_price",
+			*STATUS_DATE_FIELDS.values(),
 			f"{ACTIVITY_FIELD} as leads_activity",
 			"date(creation) as creation_date",
 		],
