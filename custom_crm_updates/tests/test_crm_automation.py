@@ -7,8 +7,11 @@ Lead -> Customer conversion and the Contacts table
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import add_days, nowdate
+from frappe.utils import add_days, get_datetime, nowdate
+from unittest.mock import patch
 
+from custom_crm_updates.go_live import ENFORCE_FROM, applies_to, enforce_from, set_go_live
+from custom_crm_updates.overrides import contracting_backport as backport
 from custom_crm_updates.overrides.contact import CONTACT_TABLE, backfill_contact_tables
 from custom_crm_updates.overrides.lead import CONVERT_DATE
 from custom_crm_updates.overrides.tender import COMPLETION_DATE
@@ -1006,3 +1009,190 @@ class TestTenderDates(FrappeTestCase):
 	def test_an_unfinished_tender_has_no_date(self):
 		tender = self.make_tender()
 		self.assertIsNone(self.direct_cost_row(tender).get(COMPLETION_DATE))
+
+
+class TestGoLiveCutoff(FrappeTestCase):
+	"""Records that predate the app keep saving as they always did
+	(custom_crm_updates/go_live.py)."""
+
+	def setUp(self):
+		self.cutoff = enforce_from()
+		if not self.cutoff:
+			self.skipTest("no go-live cutoff stamped on this site")
+
+	def age(self, doctype, name, days=30):
+		"""Push a record's creation back behind the cutoff, as a record that
+		predates the app would be."""
+		frappe.db.set_value(
+			doctype, name, "creation", add_days(get_datetime(self.cutoff), -days), update_modified=False
+		)
+
+	def test_a_cutoff_is_stamped_on_migrate(self):
+		self.assertTrue(self.cutoff)
+
+	def test_it_is_never_moved_by_a_later_migrate(self):
+		set_go_live()
+		self.assertEqual(enforce_from(), self.cutoff)
+
+	def test_a_new_record_is_covered(self):
+		self.assertTrue(applies_to(make_lead()))
+
+	def test_a_lead_from_before_the_cutoff_saves_without_the_fields(self):
+		lead = make_lead()
+		self.age("Lead", lead.name)
+		frappe.db.set_value(
+			"Lead", lead.name, {"custom_customer_group": None, "territory": None}, update_modified=False
+		)
+
+		lead = frappe.get_doc("Lead", lead.name)
+		self.assertFalse(applies_to(lead))
+		lead.company_name = "_Test Legacy Co"
+		lead.save()  # the rule does not apply: no MandatoryError
+
+	def test_a_lead_from_after_the_cutoff_still_needs_them(self):
+		lead = make_lead()
+		frappe.db.set_value(
+			"Lead", lead.name, {"custom_customer_group": None, "territory": None}, update_modified=False
+		)
+
+		lead = frappe.get_doc("Lead", lead.name)
+		with self.assertRaises(frappe.MandatoryError):
+			lead.save()
+
+	def test_an_opportunity_from_before_the_cutoff_saves_without_an_attachment(self):
+		opportunity = make_opportunity_from(make_lead().name)
+		self.age("Opportunity", opportunity.name)
+		frappe.db.delete("Opportunity Attachment", {"parent": opportunity.name})
+
+		opportunity = frappe.get_doc("Opportunity", opportunity.name)
+		self.assertFalse(applies_to(opportunity))
+		opportunity.save()  # the rule does not apply
+
+	def test_an_opportunity_from_after_the_cutoff_still_needs_one(self):
+		opportunity = make_opportunity_from(make_lead().name)
+		frappe.db.delete("Opportunity Attachment", {"parent": opportunity.name})
+
+		opportunity = frappe.get_doc("Opportunity", opportunity.name)
+		with self.assertRaises(frappe.ValidationError):
+			opportunity.save()
+
+	def test_an_activity_can_be_logged_against_an_older_opportunity(self):
+		# the exemption above would be worth nothing if the Opportunity
+		# stayed unusable for the thing it exists for
+		opportunity = make_opportunity_from(make_lead().name)
+		self.age("Opportunity", opportunity.name)
+		frappe.db.delete("Opportunity Attachment", {"parent": opportunity.name})
+
+		activity = make_activity(opportunity.name, link_type="Opportunity")
+		self.assertTrue(frappe.db.exists("Leads Activity", activity.name))
+
+	def test_site_config_overrides_the_stamped_cutoff(self):
+		with patch.dict(frappe.conf, {ENFORCE_FROM: "2099-01-01 00:00:00"}):
+			self.assertEqual(enforce_from(), "2099-01-01 00:00:00")
+			# everything that exists is older than that, so nothing is covered
+			self.assertFalse(applies_to(frappe.get_doc("Lead", make_lead().name)))
+
+
+class TestContractingBackport(FrappeTestCase):
+	"""Create ▸ Tender and the three rules that go with it, carried here
+	until the contracting app ships them
+	(custom_crm_updates/overrides/contracting_backport.py).
+
+	This bench runs contracting's own working tree, which already has all
+	four, so the guards stand them down — which is exactly the first thing
+	worth asserting. The rest patch the guard off to exercise the carried
+	code as a site without them would run it."""
+
+	def setUp(self):
+		if not frappe.db.exists("DocType", "Project Tender"):
+			self.skipTest("the contracting app is not installed")
+
+		self.opportunity = make_opportunity_from(make_lead().name).name
+		with customer_defaults():
+			activity = make_activity(
+				self.opportunity, link_type="Opportunity", activity_type="Tendering"
+			)
+		self.project_tender = tenders_of(activity.name)[0]
+
+	def stand_alone(self):
+		"""Pretend contracting does not provide these, i.e. a site on the
+		released version of that app."""
+		return patch.object(backport, "contracting_provides", lambda name: False)
+
+	def rows(self):
+		return frappe.get_doc("Project Tender", self.project_tender).direct_cost_details
+
+	def make_tender_doc(self):
+		return frappe.get_doc({
+			"doctype": "Tender",
+			"project_tender": self.project_tender,
+			"project_name": "_Test Backport " + frappe.generate_hash(length=6),
+		}).insert()
+
+	def test_it_defers_to_contracting_where_that_app_has_it(self):
+		for name in (
+			"make_tender",
+			"add_tender_to_direct_cost",
+			"remove_cancelled_tender_rows",
+			"validate_linked_tenders_complete",
+		):
+			self.assertTrue(backport.contracting_provides(name), name)
+
+	def test_an_unknown_name_is_not_reported_as_provided(self):
+		self.assertFalse(backport.contracting_provides("no_such_function_here"))
+
+	def test_make_tender_links_the_new_tender_back(self):
+		tender = backport.make_tender(self.project_tender)
+
+		self.assertEqual(tender.doctype, "Tender")
+		self.assertEqual(tender.project_tender, self.project_tender)
+		# the series belongs to the Tender, not to the Project Tender
+		self.assertNotEqual(tender.get("naming_series"), "PT-.YYYY.-")
+		# each document works its own totals out from its own rows
+		self.assertFalse(tender.get("total_direct_cost"))
+
+	def test_the_tender_joins_the_direct_cost_table(self):
+		tender = self.make_tender_doc()
+		# contracting's own after_insert already did it on this bench
+		self.assertIn(tender.name, [row.tender for row in self.rows()])
+
+		# ours puts it back on a site where that code does not exist
+		project_tender = frappe.get_doc("Project Tender", self.project_tender)
+		project_tender.set(
+			"direct_cost_details",
+			[r for r in project_tender.direct_cost_details if r.tender != tender.name],
+		)
+		project_tender.flags.skip_cross_sync = True
+		project_tender.save()
+		self.assertNotIn(tender.name, [row.tender for row in self.rows()])
+
+		with self.stand_alone():
+			backport.add_tender_to_direct_cost(tender)
+		self.assertIn(tender.name, [row.tender for row in self.rows()])
+
+	def test_adding_it_twice_does_not_duplicate_the_row(self):
+		tender = self.make_tender_doc()
+		with self.stand_alone():
+			backport.add_tender_to_direct_cost(tender)
+
+		rows = [row.tender for row in self.rows()]
+		self.assertEqual(rows.count(tender.name), 1)
+
+	def test_submitted_is_refused_while_a_tender_is_unfinished(self):
+		self.make_tender_doc()  # Draft, and now in the cost table
+
+		project_tender = frappe.get_doc("Project Tender", self.project_tender)
+		fill_cost_tables(project_tender)
+		project_tender.status = "Submitted"
+
+		with self.stand_alone(), self.assertRaises(frappe.ValidationError) as error:
+			backport.validate_linked_tenders_complete(project_tender)
+		self.assertIn("Complete", str(error.exception))
+
+	def test_a_status_that_needs_no_complete_tender_passes(self):
+		self.make_tender_doc()
+
+		project_tender = frappe.get_doc("Project Tender", self.project_tender)
+		project_tender.status = "Under Review"
+		with self.stand_alone():
+			backport.validate_linked_tenders_complete(project_tender)  # no throw

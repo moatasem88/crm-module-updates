@@ -32,8 +32,9 @@ doctype_js = {
 	"Lead": ["public/js/leads_activity_section.js", "public/js/lead.js"],
 	"Opportunity": ["public/js/leads_activity_section.js", "public/js/opportunity.js"],
 	"Customer": ["public/js/leads_activity_section.js", "public/js/customer.js"],
-	# contracting app; the file is simply never loaded if it isn't installed
+	# contracting app; the files are simply never loaded if it isn't installed
 	"Tender": "public/js/tender.js",
+	"Project Tender": "public/js/project_tender.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -71,11 +72,16 @@ doctype_js = {
 # before_install = "custom_crm_updates.install.before_install"
 # after_install = "custom_crm_updates.install.after_install"
 after_migrate = [
+	# first: stamps the go-live cutoff on a site that has none, so the rules
+	# added below apply to what is created from now on, not to what is
+	# already in the database (custom_crm_updates/go_live.py)
+	"custom_crm_updates.go_live.set_go_live",
 	"custom_crm_updates.overrides.lead.apply_lead_customizations",
 	"custom_crm_updates.overrides.opportunity.apply_opportunity_customizations",
 	"custom_crm_updates.overrides.customer.apply_customer_customizations",
 	"custom_crm_updates.overrides.project_tender.apply_project_tender_customizations",
 	"custom_crm_updates.overrides.tender.apply_tender_customizations",
+	"custom_crm_updates.overrides.contracting_backport.apply_contracting_backport",
 	# after the three above: they need the custom fields
 	"custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity.backfill_activity_tables",
 	"custom_crm_updates.overrides.project_tender.backfill_opportunity_tenders",
@@ -185,10 +191,17 @@ doc_events = {
 	"Tender": {
 		"before_insert": "custom_crm_updates.overrides.tender.set_submission_deadline",
 		"validate": "custom_crm_updates.overrides.tender.set_completion_date",
-		"on_update": "custom_crm_updates.overrides.tender.push_completion_date_to_rows",
+		# after_insert/on_update: carried until contracting ships its own,
+		# and skipped the moment it does (overrides/contracting_backport.py)
+		"after_insert": "custom_crm_updates.overrides.contracting_backport.add_tender_to_direct_cost",
+		"on_update": [
+			"custom_crm_updates.overrides.contracting_backport.remove_cancelled_tender_rows",
+			"custom_crm_updates.overrides.tender.push_completion_date_to_rows",
+		],
 	},
 	"Project Tender": {
 		"validate": [
+			"custom_crm_updates.overrides.contracting_backport.validate_linked_tenders_complete",
 			"custom_crm_updates.overrides.project_tender.validate_submitted_rows",
 			"custom_crm_updates.overrides.project_tender.set_status_dates",
 		],

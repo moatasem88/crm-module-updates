@@ -28,6 +28,7 @@ import frappe
 from frappe import _
 from frappe.utils import get_link_to_form, nowdate
 
+from custom_crm_updates.go_live import applies_to
 from custom_crm_updates.overrides.contact import CONTACT_SECTION, contact_table_fields
 from custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity import (
 	activity_table_fields,
@@ -257,8 +258,18 @@ def validate_customer_fields(doc, method=None):
 	"""validate: Customer Group and Territory are mandatory for anyone saving a
 	Lead (form, REST API, Data Import). Leads ERPNext inserts on its own pass
 	ignore_permissions or ignore_mandatory, and are completed later; until
-	then convert_lead_to_customer asks for the fields."""
+	then convert_lead_to_customer asks for the fields.
+
+	Leads created before this app was installed are exempt — see
+	custom_crm_updates/go_live.py. convert_lead_to_customer still asks for
+	the fields at the point one of those is actually converted, so the
+	Customer is never created without them."""
 	if doc.flags.ignore_permissions or doc.flags.ignore_mandatory:
+		return
+
+	# A Lead that predates this app is left as saveable as it was: the field
+	# did not exist when it was created (custom_crm_updates/go_live.py).
+	if not applies_to(doc):
 		return
 
 	missing = [doc.meta.get_label(fieldname) for fieldname in CUSTOMER_FIELDS if not doc.get(fieldname)]

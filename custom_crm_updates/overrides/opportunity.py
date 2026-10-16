@@ -39,6 +39,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, nowdate
 
+from custom_crm_updates.go_live import applies_to, applies_to_record
 from custom_crm_updates.overrides.contact import contact_table_fields
 from custom_crm_updates.overrides.lead import move_section
 from custom_crm_updates.overrides.project_tender import (
@@ -324,8 +325,16 @@ def validate_attachments(doc, method=None):
 
 	A row the user added but never picked a file for is not an attachment:
 	counting it would hand them Frappe's generic "mandatory field in row 1"
-	error instead of this one, which says what is actually needed."""
+	error instead of this one, which says what is actually needed.
+
+	Opportunities created before this app was installed are exempt — see
+	custom_crm_updates/go_live.py."""
 	if doc.flags.ignore_permissions or doc.flags.ignore_mandatory:
+		return
+
+	# An Opportunity that predates this app is left as saveable as it was:
+	# the table did not exist when it was created (go_live.py).
+	if not applies_to(doc):
 		return
 
 	# `or []`: the field is None until apply_opportunity_customizations has
@@ -365,11 +374,18 @@ def validate_activity_source(doc, method=None):
 	(public/js/leads_activity_section.js).
 
 	Only the link types in ACTIVITY_SOURCE_TABLES have an attachments table;
-	the others (Prospect) are left alone. Saves made by the automation are
+	the others (Prospect) are left alone, as are documents created before
+	this app was installed. Saves made by the automation are
 	skipped: an activity it re-saves (project_tender.mark_activity_done) was
 	already allowed when the user created it."""
 	fieldname = ACTIVITY_SOURCE_TABLES.get(doc.link_type)
 	if not fieldname or not doc.link_name or doc.flags.ignore_permissions:
+		return
+
+	# Judged on the Opportunity, not on the activity: logging a new activity
+	# against an Opportunity that predates the app must stay possible, or the
+	# exemption its own rule is given above would be worth nothing (go_live.py).
+	if not applies_to_record(doc.link_type, doc.link_name):
 		return
 
 	# None until apply_opportunity_customizations has created the field
