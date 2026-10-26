@@ -36,6 +36,11 @@ STAGE_FIELDS = {
 	"Pending CEO Approval": ("custom_ceo_recommendation", "custom_ceo_note"),
 }
 
+# Indicator colour of the outcome states (Workflow State style): approved
+# green, rejected red. Owned here, not by conract_archiving's fixtures
+# (fixtures_scope CODE_OWNED), so there is one place that sets them.
+STATE_STYLES = {APPROVED: "Success", REJECTED: "Danger"}
+
 # What may still change on an approved (Go) Opportunity: the Status, and the
 # fields a Status change fills in (the Won popup's approved tender, ERPNext's
 # Declare Lost dialog).
@@ -186,3 +191,16 @@ def ensure_approved(opportunity, what):
 		),
 		title=_("الـ Opportunity لم يُعتمد بعد"),
 	)
+
+
+def apply_workflow_state_styles():
+	"""after_migrate: Go shows green, No Go red, wherever the workflow state is
+	shown (form, list, report)."""
+	for state, style in STATE_STYLES.items():
+		if frappe.db.exists("Workflow State", state):
+			if frappe.db.get_value("Workflow State", state, "style") != style:
+				frappe.db.set_value("Workflow State", state, "style", style)
+		else:
+			frappe.get_doc(
+				{"doctype": "Workflow State", "workflow_state_name": state, "style": style}
+			).insert(ignore_permissions=True)

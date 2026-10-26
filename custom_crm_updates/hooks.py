@@ -82,6 +82,7 @@ after_migrate = [
 	"custom_crm_updates.overrides.project_tender.apply_project_tender_customizations",
 	"custom_crm_updates.overrides.tender.apply_tender_customizations",
 	"custom_crm_updates.overrides.contracting_backport.apply_contracting_backport",
+	"custom_crm_updates.overrides.opportunity_workflow.apply_workflow_state_styles",
 	# after the three above: they need the custom fields
 	"custom_crm_updates.custom_crm_updates.doctype.leads_activity.leads_activity.backfill_activity_tables",
 	"custom_crm_updates.overrides.project_tender.backfill_opportunity_tenders",
