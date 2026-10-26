@@ -1,0 +1,23 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-25 09:01:11.232746",
+  "name": "Send for Approval",
+  "workflow_action_name": "Send for Approval"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-25 09:01:24.501617",
+  "name": "GO",
+  "workflow_action_name": "GO"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-10-25 09:01:29.790531",
+  "name": "No Go",
+  "workflow_action_name": "No Go"
+ }
+]

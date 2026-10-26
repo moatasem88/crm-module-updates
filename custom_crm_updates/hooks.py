@@ -71,6 +71,43 @@ doctype_js = {
 
 # before_install = "custom_crm_updates.install.before_install"
 # after_install = "custom_crm_updates.install.after_install"
+# Fixtures
+# --------
+# CRM configuration made through the UI (Customize Form, Workflow) on the live
+# site. Every name is listed explicitly: Customer / Lead / Opportunity also
+# carry records owned elsewhere (this app's own after_migrate code, ERPNext,
+# conract_archiving's older Customer naming series), and the shared workflow
+# pieces (Draft, Pending CEO Approval, Approve) stay with the apps whose
+# workflows they serve. Go / No Go are created and coloured in after_migrate
+# (overrides/opportunity_workflow.py: apply_workflow_state_styles).
+# Re-export after any UI change to them: bench export-fixtures --app custom_crm_updates
+fixtures = [
+	{
+		"dt": "Custom Field",
+		"filters": [[
+			"name", "in", [
+				"Customer-custom_customer_class",
+				"Lead-custom_lead_class_",
+				"Opportunity-workflow_state",
+				"Opportunity-custom_recommendations__notes",
+				"Opportunity-custom_bd_manager",
+				"Opportunity-custom_bd_manager_recommendation",
+				"Opportunity-custom_bd_manager_notes",
+				"Opportunity-custom_bd_director",
+				"Opportunity-custom_bd_director_recommendation",
+				"Opportunity-custom_bd_director_note",
+				"Opportunity-custom_ceo",
+				"Opportunity-custom_ceo_recommendation",
+				"Opportunity-custom_ceo_note",
+			],
+		]],
+	},
+	{"dt": "Property Setter", "filters": [["name", "in", ["Customer-main-field_order", "Lead-type-hidden"]]]},
+	{"dt": "Workflow", "filters": [["name", "in", ["opportunity"]]]},
+	{"dt": "Workflow State", "filters": [["name", "in", ["Pending BD Manager", "Pending BD Director"]]]},
+	{"dt": "Workflow Action Master", "filters": [["name", "in", ["Send for Approval", "GO", "No Go"]]]},
+]
+
 after_migrate = [
 	# first: stamps the go-live cutoff on a site that has none, so the rules
 	# added below apply to what is created from now on, not to what is

@@ -1,0 +1,20 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-10-25 08:59:35.649601",
+  "name": "Pending BD Manager",
+  "style": "",
+  "workflow_state_name": "Pending BD Manager"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-10-25 08:59:43.816213",
+  "name": "Pending BD Director",
+  "style": "",
+  "workflow_state_name": "Pending BD Director"
+ }
+]
