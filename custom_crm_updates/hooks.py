@@ -154,7 +154,11 @@ doc_events = {
 		"after_insert": "custom_crm_updates.overrides.contact.refresh_after_insert",
 	},
 	"Leads Activity": {
-		"validate": "custom_crm_updates.overrides.opportunity.validate_activity_source",
+		"validate": [
+			"custom_crm_updates.overrides.opportunity.validate_activity_source",
+			# no Activity before the Opportunity is approved (Go)
+			"custom_crm_updates.overrides.opportunity_workflow.validate_activity_opportunity",
+		],
 	},
 	"Opportunity": {
 		"validate": [
@@ -166,6 +170,10 @@ doc_events = {
 			"custom_crm_updates.overrides.opportunity.calculate_contributions",
 			"custom_crm_updates.overrides.opportunity.set_won_date",
 		],
+		# before validate: judges what the user sent, before ERPNext's validate
+		# fills empty fields from the Lead/Customer (map_fields) and the
+		# validators above work out theirs
+		"before_validate": "custom_crm_updates.overrides.opportunity_workflow.enforce_workflow",
 		"on_update": [
 			"custom_crm_updates.overrides.project_tender.apply_approved_tender",
 			"custom_crm_updates.overrides.contact.refresh_party_lead",
@@ -204,6 +212,7 @@ doc_events = {
 			"custom_crm_updates.overrides.contracting_backport.validate_linked_tenders_complete",
 			"custom_crm_updates.overrides.project_tender.validate_submitted_rows",
 			"custom_crm_updates.overrides.project_tender.set_status_dates",
+			"custom_crm_updates.overrides.opportunity_workflow.validate_tender_opportunity",
 		],
 		"on_update": "custom_crm_updates.overrides.project_tender.on_update",
 		"on_trash": "custom_crm_updates.overrides.project_tender.on_trash",

@@ -37,6 +37,8 @@ custom_crm_updates.show_when_empty = function (frm, fieldnames) {
 // New Leads Activity pre-linked to the current Lead/Opportunity.
 custom_crm_updates.make_activity = function (frm) {
 	const { doctype, name } = frm.doc;
+	// opportunity.js: no Activity before the Opportunity is approved
+	if (custom_crm_updates.can_log_activity && !custom_crm_updates.can_log_activity(frm)) return;
 	if (!custom_crm_updates.has_attachment(frm)) return;
 
 	frappe.model.with_doctype("Leads Activity", () => {

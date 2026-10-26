@@ -43,12 +43,77 @@ custom_crm_updates.OpportunityController = class OpportunityController extends e
 
 	refresh() {
 		super.refresh();
-		custom_crm_updates.add_activity_buttons(this.frm);
+		if (is_approved(this.frm)) custom_crm_updates.add_activity_buttons(this.frm);
 		custom_crm_updates.add_contact_button(this.frm);
 		set_contact_person_query(this.frm);
 		remember_status(this.frm);
+		// last: after every button core and the code above added
+		apply_workflow_rules(this.frm);
 	}
 };
+
+// Approval workflow ("opportunity"); the server holds the same rules
+// (overrides/opportunity_workflow.py), these show them on the form.
+const WORKFLOW_FIELD = "workflow_state";
+const APPROVED = "Go";
+const REJECTED = "No Go";
+// stage -> the fields its approver fills in. Shown from that stage on (their
+// depends_on), required and editable in that stage only.
+const STAGE_FIELDS = {
+	"Pending BD Manager": ["custom_bd_manager_recommendation", "custom_bd_manager_notes"],
+	"Pending BD Director": ["custom_bd_director_recommendation", "custom_bd_director_note"],
+	"Pending CEO Approval": ["custom_ceo_recommendation", "custom_ceo_note"],
+};
+// core's Create buttons: nothing is done on an Opportunity before it is
+// approved, nor on a rejected one
+const CREATE_BUTTONS = ["Quotation", "Supplier Quotation", "Request For Quotation", "Customer", "Activity"];
+const STATUS_BUTTONS = ["Close", "Reopen"];
+
+function is_approved(frm) {
+	// no workflow state: an Opportunity that predates the workflow
+	return !frm.doc[WORKFLOW_FIELD] || frm.doc[WORKFLOW_FIELD] === APPROVED;
+}
+
+// Read by custom_crm_updates.make_activity (leads_activity_section.js), which
+// also serves the Connections tab "+".
+custom_crm_updates.can_log_activity = function (frm) {
+	if (frm.doctype !== "Opportunity" || is_approved(frm)) return true;
+
+	frappe.msgprint({
+		title: __("الـ Opportunity لم يُعتمد بعد"),
+		message: __("لا يمكن إنشاء Activity أو Project Tender قبل اعتماد الـ Opportunity ({0}).", [__(APPROVED)]),
+		indicator: "orange",
+	});
+	return false;
+};
+
+function apply_workflow_rules(frm) {
+	const state = frm.doc[WORKFLOW_FIELD];
+	if (!state) return;
+
+	for (const [stage, fieldnames] of Object.entries(STAGE_FIELDS)) {
+		const own_stage = state === stage;
+		for (const fieldname of fieldnames) {
+			frm.set_df_property(fieldname, "reqd", own_stage ? 1 : 0);
+			frm.set_df_property(fieldname, "read_only", own_stage ? 0 : 1);
+		}
+	}
+
+	if (state === APPROVED || state === REJECTED) {
+		// frozen: only the Status stays editable, and only once approved
+		for (const df of frm.meta.fields) {
+			const layout = frappe.model.no_value_type.includes(df.fieldtype) && !frappe.model.table_fields.includes(df.fieldtype);
+			if (layout || df.fieldname === "status") continue;
+			frm.set_df_property(df.fieldname, "read_only", 1);
+		}
+	}
+	frm.set_df_property("status", "read_only", state === APPROVED ? 0 : 1);
+
+	if (state !== APPROVED) {
+		for (const label of CREATE_BUTTONS) frm.remove_custom_button(__(label), __("Create"));
+		for (const label of STATUS_BUTTONS) frm.remove_custom_button(__(label));
+	}
+}
 
 frappe.ui.form.on("Opportunity", {
 	status(frm) {
